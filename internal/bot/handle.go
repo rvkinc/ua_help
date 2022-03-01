@@ -1,26 +1,10 @@
 package bot
 
 import (
-	"context"
-	"fmt"
-
 	tg "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-func NewMessageHandler() *MessageHandler {
-	return &MessageHandler{}
-}
-
-type MessageHandler struct{}
-
-func (m *MessageHandler) Handle(b *tg.BotAPI, u *Update) {
-	fmt.Println("hello, i'm handling")
-}
-
-type Update struct {
-	Context context.Context
-	*tg.Update
-}
+type Update struct{ *tg.Update }
 
 func (u *Update) User() *tg.User {
 	if u.CallbackQuery != nil {

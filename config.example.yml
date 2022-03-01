@@ -1,6 +1,6 @@
 
 bot:
-  token: string
+  token: 5123336105:AAGP04EqqpBTO1AhhMAUdOzfAtitz_dop2M
 
 db:
   server: string
