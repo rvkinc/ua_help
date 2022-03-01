@@ -61,8 +61,9 @@ func main() {
 	for com, parent := range communityID {
 		v, ok := localityMap[com]
 		if ok {
-			for _, loc := range v {
-				loc.ParentID = parent
+
+			for loc := range v {
+				v[loc].ParentID = parent
 			}
 			localityMap[com] = v
 		}
