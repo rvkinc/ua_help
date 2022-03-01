@@ -2,8 +2,9 @@ package service
 
 import (
 	"context"
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type localityID = int32
@@ -30,6 +31,7 @@ type Request struct {
 	CreatorID   uuid.UUID
 	CategoryID  uuid.UUID
 	LocalityID  localityID
+	Phone       string
 	Description string
 	Resolved    bool
 	CreatedAt   time.Time
