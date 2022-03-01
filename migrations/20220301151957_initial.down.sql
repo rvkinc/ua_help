@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS "user";
+
+DROP TABLE IF EXISTS category;
+
+DROP TABLE IF EXISTS request;
+
+DROP TABLE IF EXISTS locality;
+
+DROP TYPE IF EXISTS locality_type;
