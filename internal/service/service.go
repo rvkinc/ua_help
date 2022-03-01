@@ -26,10 +26,11 @@ type Message struct {
 }
 
 type Request struct {
-	ID         uuid.UUID
-	CreatorID  uuid.UUID
-	Category   string // todo: enums
-	LocalityID localityID
-	Resolved   bool
-	CreatedAt  time.Time
+	ID          uuid.UUID
+	CreatorID   uuid.UUID
+	CategoryID  uuid.UUID
+	LocalityID  localityID
+	Description string
+	Resolved    bool
+	CreatedAt   time.Time
 }
