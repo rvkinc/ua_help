@@ -1,4 +1,4 @@
-module github.com/rvkinc/ua_help
+module github.com/rvkinc/uasocial
 
 go 1.17
 
