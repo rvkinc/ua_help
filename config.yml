@@ -1,0 +1,10 @@
+
+bot:
+  token: string
+
+db:
+  server: string
+  port: 8080
+  user: user
+  password: secret
+  schema: string
