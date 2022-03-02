@@ -3,9 +3,10 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
-	"github.com/pkg/errors"
+	er "github.com/pkg/errors"
 	"github.com/rvkinc/uasocial/internal/service"
 )
 
@@ -38,7 +39,7 @@ func (u user) Create(ctx context.Context, user service.User) error {
 		user.Name,
 	)
 	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("failed to create user with id: %s", user.ID))
+		return er.Wrap(err, fmt.Sprintf("failed to create user with id: %s", user.ID))
 	}
 
 	return nil

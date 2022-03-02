@@ -3,9 +3,10 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
-	"github.com/pkg/errors"
+	er "github.com/pkg/errors"
 	"github.com/rvkinc/uasocial/internal/service"
 )
 
@@ -62,7 +63,7 @@ func (r request) Create(ctx context.Context, request service.Request) error {
 		request.Phone,
 		request.Description)
 	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("failed to create request with id: %s", request.ID))
+		return er.Wrap(err, fmt.Sprintf("failed to create request with id: %s", request.ID))
 	}
 
 	return nil
@@ -71,7 +72,7 @@ func (r request) Create(ctx context.Context, request service.Request) error {
 func (r request) Delete(ctx context.Context, id string) error {
 	_, err := r.DB.ExecContext(ctx, deleterequestQuery, id)
 	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("failed to delete request with id: %s", id))
+		return er.Wrap(err, fmt.Sprintf("failed to delete request with id: %s", id))
 	}
 
 	return nil

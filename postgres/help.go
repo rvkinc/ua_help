@@ -3,9 +3,10 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
-	"github.com/pkg/errors"
+	er "github.com/pkg/errors"
 
 	"github.com/rvkinc/uasocial/internal/service"
 )
@@ -57,7 +58,7 @@ func (h Help) Get(ctx context.Context, id string) (service.Help, error) {
 func (h Help) Create(ctx context.Context, help service.Help) error {
 	_, err := h.DB.ExecContext(ctx, createHelpQuery, help.ID, help.CategoryID, help.CategoryID, help.LocalityID)
 	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("failed to create help with id: %s", help.ID))
+		return er.Wrap(err, fmt.Sprintf("failed to create help with id: %s", help.ID))
 	}
 
 	return nil
@@ -66,7 +67,7 @@ func (h Help) Create(ctx context.Context, help service.Help) error {
 func (h Help) Delete(ctx context.Context, id string) error {
 	_, err := h.DB.ExecContext(ctx, deleteHelpQuery, id)
 	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("failed to delete help with id: %s", id))
+		return er.Wrap(err, fmt.Sprintf("failed to delete help with id: %s", id))
 	}
 
 	return nil
