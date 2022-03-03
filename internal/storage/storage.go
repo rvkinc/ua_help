@@ -17,22 +17,21 @@ type Config struct {
 }
 
 type Interface interface {
-	UpsertUser(*User) (*User, error)
-	SelectLocalities(string) ([]*LocalityRegion, error)
+	UpsertUser(context.Context, *User) (*User, error)
+	SelectLocalities(context.Context, string) ([]*LocalityRegion, error)
 
-	SelectRequestsByUser(uuid.UUID) ([]*Request, error)
-	InsertRequest(*Request) (*Request, error)
-	ResolveRequest(uuid.UUID) error
+	SelectRequestsByUser(context.Context, uuid.UUID) ([]*Request, error)
+	InsertRequest(context.Context, *Request) (*Request, error)
+	ResolveRequest(context.Context, uuid.UUID) error
 
-	SelectHelpsByUser(uuid.UUID) ([]*Help, error)
-	InsertHelp(*Help) (*Help, error)
-	DeleteHelp(uuid.UUID) error
+	SelectHelpsByUser(context.Context, uuid.UUID) ([]*Help, error)
+	InsertHelp(context.Context, *Help) (*Help, error)
+	DeleteHelp(context.Context, uuid.UUID) error
 }
 
 type Postgres struct {
 	config *Config
 	driver *sqlx.DB
-	ctx    context.Context
 }
 
 func NewPostgres(ctx context.Context, c *Config) (*Postgres, error) {
@@ -49,7 +48,6 @@ func NewPostgres(ctx context.Context, c *Config) (*Postgres, error) {
 	return &Postgres{
 		config: c,
 		driver: db,
-		ctx:    ctx,
 	}, nil
 }
 
@@ -158,13 +156,13 @@ values ($1, $2, $3, $4, $5)`
 	deleteHelpSQL = `delete from help where id = $1`
 )
 
-func (p *Postgres) UpsertUser(user *User) (*User, error) {
+func (p *Postgres) UpsertUser(ctx context.Context, user *User) (*User, error) {
 	var (
 		now = time.Now().UTC()
 		uid = uuid.New()
 	)
 
-	_, err := p.driver.ExecContext(p.ctx, upsertUserSQL,
+	_, err := p.driver.ExecContext(ctx, upsertUserSQL,
 		uid, user.TgID, user.ChatID, user.Name, now, now)
 
 	if err != nil {
@@ -181,23 +179,23 @@ func (p *Postgres) UpsertUser(user *User) (*User, error) {
 	}, nil
 }
 
-func (p *Postgres) SelectLocalities(s string) ([]*LocalityRegion, error) {
+func (p *Postgres) SelectLocalities(ctx context.Context, s string) ([]*LocalityRegion, error) {
 	var localities = make([]*LocalityRegion, 0)
-	return localities, p.driver.SelectContext(p.ctx, &localities, selectLocalitiesSQL, s)
+	return localities, p.driver.SelectContext(ctx, &localities, selectLocalitiesSQL, s)
 }
 
-func (p *Postgres) SelectRequestsByUser(u uuid.UUID) ([]*Request, error) {
+func (p *Postgres) SelectRequestsByUser(ctx context.Context, u uuid.UUID) ([]*Request, error) {
 	var requests = make([]*Request, 0)
-	return requests, p.driver.SelectContext(p.ctx, &requests, selectRequestsByUserSQL, u)
+	return requests, p.driver.SelectContext(ctx, &requests, selectRequestsByUserSQL, u)
 }
 
-func (p *Postgres) InsertRequest(rq *Request) (*Request, error) {
+func (p *Postgres) InsertRequest(ctx context.Context, rq *Request) (*Request, error) {
 	var (
 		now = time.Now().UTC()
 		uid = uuid.New()
 	)
 
-	_, err := p.driver.ExecContext(p.ctx, insertRequestSQL,
+	_, err := p.driver.ExecContext(ctx, insertRequestSQL,
 		uid, rq.CreatorID, rq.CategoryID, rq.Phone, rq.LocalityID, rq.Description, rq.Resolved, now, nil)
 
 	if err != nil {
@@ -217,23 +215,23 @@ func (p *Postgres) InsertRequest(rq *Request) (*Request, error) {
 	}, nil
 }
 
-func (p *Postgres) ResolveRequest(u uuid.UUID) error {
-	_, err := p.driver.ExecContext(p.ctx, resolveRequestSQL, u)
+func (p *Postgres) ResolveRequest(ctx context.Context, u uuid.UUID) error {
+	_, err := p.driver.ExecContext(ctx, resolveRequestSQL, u)
 	return err
 }
 
-func (p *Postgres) SelectHelpsByUser(u uuid.UUID) ([]*Help, error) {
+func (p *Postgres) SelectHelpsByUser(ctx context.Context, u uuid.UUID) ([]*Help, error) {
 	var helps = make([]*Help, 0)
-	return helps, p.driver.SelectContext(p.ctx, &helps, selectHelpsByUserSQL, u)
+	return helps, p.driver.SelectContext(ctx, &helps, selectHelpsByUserSQL, u)
 }
 
-func (p *Postgres) InsertHelp(h *Help) (*Help, error) {
+func (p *Postgres) InsertHelp(ctx context.Context, h *Help) (*Help, error) {
 	var (
 		now = time.Now().UTC()
 		uid = uuid.New()
 	)
 
-	_, err := p.driver.ExecContext(p.ctx, insertHelpSQL,
+	_, err := p.driver.ExecContext(ctx, insertHelpSQL,
 		uid, h.CreatorID, h.CategoryID, h.LocalityID, now)
 
 	if err != nil {
@@ -249,7 +247,7 @@ func (p *Postgres) InsertHelp(h *Help) (*Help, error) {
 	}, nil
 }
 
-func (p *Postgres) DeleteHelp(u uuid.UUID) error {
-	_, err := p.driver.ExecContext(p.ctx, deleteHelpSQL, u)
+func (p *Postgres) DeleteHelp(ctx context.Context, u uuid.UUID) error {
+	_, err := p.driver.ExecContext(ctx, deleteHelpSQL, u)
 	return err
 }
