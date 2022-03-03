@@ -9,90 +9,76 @@ import (
 	"github.com/rvkinc/uasocial/internal/storage"
 )
 
-type Interface interface {
-}
+var (
+	tenDaysDuration = time.Hour * 24 * 10
+	tenDaysDate     = time.Now().AddDate(0, 0, -10)
+)
 
-type PushMessage struct {
-	Recipients []uuid.UUID
-	Message    Message
-}
+type (
+	Message struct {
+		Text string
+	}
 
-type Message struct {
-	Text string
-}
+	CreateUser struct {
+		TgID   int64
+		ChatID int64
+		Name   string
+	}
 
-type Request struct {
-	ID          uuid.UUID
-	CreatorID   uuid.UUID
-	CategoryID  uuid.UUID
-	LocalityID  int
-	Description string
-	Resolved    bool
-	CreatedAt   time.Time
-}
+	User struct {
+		ID     uuid.UUID
+		TgID   int64
+		ChatID int64
+		Name   string
+	}
 
-type CreateUser struct {
-	TgID   int64
-	ChatID int64
-	Name   string
-}
+	CreateHelp struct {
+		CreatorID  uuid.UUID
+		CategoryID uuid.UUID
+		LocalityID int
+	}
 
-type User struct {
-	ID     uuid.UUID
-	TgID   int64
-	ChatID int64
-	Name   string
-}
+	UserHelp struct {
+		ID        uuid.UUID
+		CreatorID uuid.UUID
+		Category  string
+		Locality  string
+	}
 
-type CreateHelp struct {
-	CreatorID  uuid.UUID
-	CategoryID uuid.UUID
-	LocalityID int
-}
+	UserRequest struct {
+		ID          uuid.UUID
+		Category    string
+		TgID        string
+		Phone       string
+		Locality    string
+		Description string
+		CreatedAt   time.Time
+	}
 
-type UserHelp struct {
-	ID         uuid.UUID
-	CreatorID  uuid.UUID
-	CategoryID uuid.UUID
-	LocalityID int
-}
+	NewRequest struct {
+		CreatorID    uuid.UUID
+		CategoryID   uuid.UUID
+		TgID         int64
+		LocalityID   int
+		LocalityType string
+		Phone        string
+		Description  string
+	}
 
-type locality string
+	HelpMessage struct {
+		ChatID int64
+		UserRequest
+	}
 
-type Category string
+	Locality struct {
+		ID         int
+		Type       string
+		Name       string
+		RegionName string
+	}
 
-type UserRequest struct {
-	Category    Category
-	Phone       string
-	Locality    locality
-	Description string
-	CreatedAt   time.Time
-}
-
-type NewRequest struct {
-	CreatorID    uuid.UUID
-	CategoryID   uuid.UUID
-	LocalityID   int
-	LocalityType string
-	Phone        string
-	Description  string
-}
-
-type HelpMessage struct {
-	ChatID int64
-}
-
-type RequestMessage struct {
-}
-
-type Locality struct {
-	ID         int
-	Type       string
-	Name       string
-	RegionName string
-}
-
-type language string
+	language string
+)
 
 const (
 	UA language = "UA"
@@ -102,19 +88,35 @@ const (
 
 // Service is a service implementation.
 type Service struct {
-	storage          storage.Interface
-	language         language
-	requestMessageCh chan RequestMessage
-	helpMessageCh    chan []HelpMessage
+	storage           storage.Interface
+	language          language
+	requestsExpiredCh chan []UserRequest
+	helpMessageCh     chan []HelpMessage
 }
 
 // NewService returns new service implementation.
 func NewService(storage storage.Interface, language language) *Service {
-	return &Service{
-		storage:          storage,
-		language:         language,
-		requestMessageCh: make(chan RequestMessage, 100),
-		helpMessageCh:    make(chan []HelpMessage, 100),
+	s := &Service{
+		storage:           storage,
+		language:          language,
+		requestsExpiredCh: make(chan []UserRequest),
+		helpMessageCh:     make(chan []HelpMessage, 100),
+	}
+
+	go s.checkExpiredRequests()
+
+	return s
+}
+
+func (s *Service) checkExpiredRequests() {
+	ticker := time.NewTicker(tenDaysDuration).C
+	for range ticker {
+		requests, err := s.expiredRequests(context.Background(), tenDaysDate)
+		if err != nil {
+			// log here
+			continue
+		}
+		s.requestsExpiredCh <- requests
 	}
 }
 
@@ -156,15 +158,11 @@ func (s *Service) AutocompleteLocality(ctx context.Context, input string) ([]Loc
 
 // NewHelp creates new help.
 func (s *Service) NewHelp(ctx context.Context, request CreateHelp) error {
-	_, err := s.storage.InsertHelp(ctx, &storage.Help{
+	return s.storage.InsertHelp(ctx, &storage.HelpScan{
 		CreatorID:  request.CreatorID,
 		CategoryID: request.CategoryID,
 		LocalityID: request.LocalityID,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // UserHelps returns helps of specific userID.
@@ -175,11 +173,36 @@ func (s *Service) UserHelps(ctx context.Context, userID uuid.UUID) ([]UserHelp, 
 	}
 	helps := make([]UserHelp, 0, len(hs))
 	for _, help := range hs {
-		helps = append(helps, UserHelp{
-			CategoryID: help.CategoryID,
-		})
+		h := UserHelp{
+			ID:        help.ID,
+			CreatorID: help.CreatorID,
+		}
+		h.localize(help)
+		helps = append(helps, h)
 	}
 	return helps, nil
+}
+
+func (h *UserHelp) localize(help *storage.HelpValue) {
+	switch help.Language {
+	case "UA":
+		h.Category, h.Locality = help.CategoryNameUA, help.LocalityPublicNameUA
+	case "RU":
+		h.Category, h.Locality = help.CategoryNameRU, help.LocalityPublicNameRU
+	case "EN":
+		h.Category, h.Locality = help.CategoryNameEN, help.LocalityPublicNameEN
+	}
+}
+
+func (u *UserRequest) localize(request *storage.RequestValue) {
+	switch request.Language {
+	case "UA":
+		u.Category, u.Locality = request.CategoryNameUA, request.LocalityPublicNameUA
+	case "RU":
+		u.Category, u.Locality = request.CategoryNameRU, request.LocalityPublicNameRU
+	case "EN":
+		u.Category, u.Locality = request.CategoryNameEN, request.LocalityPublicNameEN
+	}
 }
 
 // DeleteHelp deletes specific help by helpID.
@@ -189,13 +212,19 @@ func (s *Service) DeleteHelp(ctx context.Context, helpID uuid.UUID) error {
 
 // NewRequest creates request.
 func (s *Service) NewRequest(ctx context.Context, request NewRequest) error {
-	_, err := s.storage.InsertRequest(ctx, &storage.Request{
+	var isValid bool
+
+	if request.Phone != "" {
+		isValid = true
+	}
+
+	requestValue, err := s.storage.InsertRequest(ctx, &storage.RequestScan{
 		CreatorID:  request.CreatorID,
 		CategoryID: request.CategoryID,
 		LocalityID: request.LocalityID,
 		Phone: sql.NullString{
 			String: request.Phone,
-			Valid:  true,
+			Valid:  isValid,
 		},
 		Description: request.Description,
 	})
@@ -204,14 +233,14 @@ func (s *Service) NewRequest(ctx context.Context, request NewRequest) error {
 	}
 
 	var (
-		hs []*storage.Help
+		hs []*storage.User
 	)
 
 	switch request.LocalityType {
 	case "VILLAGE", "URBAN":
 		hs, err = s.storage.SelectHelpsByLocalityAndCategoryForVillage(ctx, request.LocalityID, request.CategoryID)
 	default:
-		hs, err = s.storage.SelectHelpsByLocalityAndCategory(ctx, request.LocalityID, request.CategoryID)
+		hs, err = s.storage.SelectHelpsByLocalityAndCategoryForCity(ctx, request.LocalityID, request.CategoryID)
 	}
 
 	if err != nil {
@@ -221,12 +250,17 @@ func (s *Service) NewRequest(ctx context.Context, request NewRequest) error {
 	helpMessages := make([]HelpMessage, 0, len(hs))
 
 	for _, help := range hs {
-		helper, err := s.storage.UserByID(ctx, help.CreatorID)
-		if err != nil {
-			return err
+		u := UserRequest{
+			ID:          requestValue.ID,
+			TgID:        requestValue.TgID,
+			Phone:       requestValue.Phone.String,
+			Description: requestValue.Description,
+			CreatedAt:   requestValue.CreatedAt,
 		}
+		u.localize(requestValue)
 		helpMessages = append(helpMessages, HelpMessage{
-			ChatID: helper.ChatID,
+			UserRequest: u,
+			ChatID:      help.ChatID,
 		})
 	}
 
@@ -241,18 +275,47 @@ func (s *Service) sendHelpMessages(helpMessages []HelpMessage) {
 
 // UserRequests returns user's requests.
 func (s *Service) UserRequests(ctx context.Context, userID uuid.UUID) ([]UserRequest, error) {
-	//
-	return nil, nil
-}
+	rs, err := s.storage.SelectRequestsByUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	requests := make([]UserRequest, 0, len(rs))
+	for _, request := range rs {
+		u := UserRequest{
+			ID:          request.ID,
+			TgID:        request.TgID,
+			Phone:       request.Phone.String,
+			Description: request.Description,
+			CreatedAt:   request.CreatedAt,
+		}
+		u.localize(request)
+		requests = append(requests, u)
+	}
 
-// UserRequest returns user's request.
-func (s *Service) UserRequest(ctx context.Context, requestID uuid.UUID) (UserRequest, error) {
-	//
-	return UserRequest{}, nil
+	return requests, nil
 }
 
 // DeleteRequest deletes specific request by requestID.
 func (s *Service) DeleteRequest(ctx context.Context, requestID uuid.UUID) error {
-	//
-	return nil
+	return s.storage.ResolveRequest(ctx, requestID)
+}
+
+func (s *Service) expiredRequests(ctx context.Context, after time.Time) ([]UserRequest, error) {
+	rs, err := s.storage.ExpiredRequests(ctx, after)
+	if err != nil {
+		return nil, err
+	}
+	requests := make([]UserRequest, 0, len(rs))
+	for _, request := range rs {
+		u := UserRequest{
+			ID:          request.ID,
+			TgID:        request.TgID,
+			Phone:       request.Phone.String,
+			Description: request.Description,
+			CreatedAt:   request.CreatedAt,
+		}
+		u.localize(request)
+		requests = append(requests, u)
+	}
+	return requests, nil
 }
