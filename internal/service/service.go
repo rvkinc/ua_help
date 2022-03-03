@@ -10,6 +10,7 @@ type localityID = int32
 
 type Service interface {
 	NewRequest(ctx context.Context, rq *Request) (*Request, error)
+	// resovle request...
 	LocalityRequests(lid localityID) ([]*Request, error)
 	CloseRequest(rid uuid.UUID) error
 

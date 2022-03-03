@@ -1,0 +1,28 @@
+
+{
+  "user_role_request": {
+    "ua": "Привіт, для початку вкажіть вашу роль"
+  },
+  "contact_phone_request": {
+    "ua": "Вкажіть контактний номер - вручну, або оберіть \"Поділитись\". Це не обов'язково, але ваш номер допоможе волонтерам швидше з вами зв'язатись"
+  },
+
+
+  "btn_option_user_role_seeker": {
+    "ua": "Мені необхідна допомога"
+  },
+  "btn_option_user_role_volunteer": {
+    "ua": "Я волонтер"
+  },
+
+  "error_choose_option": {
+    "ua": "Будь ласка, оберіть одну з опцій"
+  },
+
+  "category_food": { "ua": "Продукти" },
+  "category_meds": { "ua": "Медикаменти" },
+  "category_clothes": { "ua": "Одяг" },
+  "category_apartments": { "ua": "Житло" },
+  "category_transport": { "ua": "Транспорт" },
+  "category_other": { "ua": "Інше" }
+}

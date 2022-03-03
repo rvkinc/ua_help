@@ -49,9 +49,12 @@ func (b *Bot) Run() error {
 		return fmt.Errorf("failed to get updates chan: %s", err)
 	}
 
-	for upd := range updch {
-		go func(u tg.Update) { b.Stack.Handle(b.Api, &Update{Update: &u}) }(upd)
+	for {
+		select {
+		case upd := <-updch:
+			go func(u tg.Update) { b.Stack.Handle(b.Api, &Update{Update: &u}) }(upd)
+		case <-b.Ctx.Done():
+			return nil
+		}
 	}
-
-	return nil
 }
