@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -69,11 +70,12 @@ type UserRequest struct {
 }
 
 type NewRequest struct {
-	CreatorID   uuid.UUID
-	CategoryID  uuid.UUID
-	Locality    int
-	Phone       string
-	Description string
+	CreatorID    uuid.UUID
+	CategoryID   uuid.UUID
+	LocalityID   int
+	LocalityType string
+	Phone        string
+	Description  string
 }
 
 type HelpMessage struct {
@@ -188,17 +190,15 @@ func (s *Service) DeleteHelp(ctx context.Context, helpID uuid.UUID) error {
 // NewRequest creates request.
 func (s *Service) NewRequest(ctx context.Context, request NewRequest) error {
 	_, err := s.storage.InsertRequest(ctx, &storage.Request{
-		CreatorID:   request.CreatorID,
-		CategoryID:  request.CategoryID,
-		LocalityID:  request.Locality,
-		Phone:       request.Phone,
+		CreatorID:  request.CreatorID,
+		CategoryID: request.CategoryID,
+		LocalityID: request.LocalityID,
+		Phone: sql.NullString{
+			String: request.Phone,
+			Valid:  true,
+		},
 		Description: request.Description,
 	})
-	if err != nil {
-		return err
-	}
-
-	locality, err := s.storage.SelectLocality(ctx, request.Locality)
 	if err != nil {
 		return err
 	}
@@ -207,11 +207,11 @@ func (s *Service) NewRequest(ctx context.Context, request NewRequest) error {
 		hs []*storage.Help
 	)
 
-	switch locality.Type {
+	switch request.LocalityType {
 	case "VILLAGE", "URBAN":
-		hs, err = s.storage.SelectHelpsByLocalityAndCategoryForVillage(ctx, request.Locality, request.CategoryID)
+		hs, err = s.storage.SelectHelpsByLocalityAndCategoryForVillage(ctx, request.LocalityID, request.CategoryID)
 	default:
-		hs, err = s.storage.SelectHelpsByLocalityAndCategory(ctx, request.Locality, request.CategoryID)
+		hs, err = s.storage.SelectHelpsByLocalityAndCategory(ctx, request.LocalityID, request.CategoryID)
 	}
 
 	if err != nil {
