@@ -1,4 +1,4 @@
-DROP TABLE IF EXISTS "user";
+DROP TABLE IF EXISTS app_user;
 
 DROP TABLE IF EXISTS category;
 

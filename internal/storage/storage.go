@@ -2,9 +2,10 @@ package storage
 
 import (
 	"context"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"time"
 )
 
 const dialect = "postgres"
@@ -14,31 +15,34 @@ type Config struct {
 }
 
 type Interface interface {
-	UpsertUser(*User) (*User, error)
-	SelectLocalities(string) ([]*LocalityRegion, error)
+	UpsertUser(context.Context, *User) (*User, error)
+	UserByID(context.Context, uuid.UUID) (*User, error)
+	SelectLocalities(context.Context, string) ([]*LocalityRegion, error)
+	SelectLocality(context.Context, int) (LocalityRegion, error)
 
 	SelectRequestsByUser(uuid.UUID) ([]*Request, error)
-	InsertRequest(*Request) (*Request, error)
+	InsertRequest(context.Context, *Request) (*Request, error)
 	ResolveRequest(uuid.UUID) error
 
-	SelectHelpsByUser(uuid.UUID) ([]*Help, error)
-	InsertHelp(*Help) (*Help, error)
-	DeleteHelp(uuid.UUID) error
+	SelectHelpsByUser(context.Context, uuid.UUID) ([]*Help, error)
+	SelectHelpsByLocalityAndCategory(context.Context, int, uuid.UUID) ([]*Help, error)
+	SelectHelpsByLocalityAndCategoryForVillage(context.Context, int, uuid.UUID) ([]*Help, error)
+	InsertHelp(context.Context, *Help) (*Help, error)
+	DeleteHelp(context.Context, uuid.UUID) error
 }
 
 type Postgres struct {
 	config *Config
 	driver *sqlx.DB
-	ctx    context.Context
 }
 
-func NewPostgres(ctx context.Context, c *Config) (*Postgres, error) {
+func NewPostgres(c *Config) (*Postgres, error) {
 	db, err := sqlx.Open(dialect, c.DSN)
 	if err != nil {
 		return nil, err
 	}
 
-	err = db.PingContext(ctx)
+	err = db.PingContext(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -115,6 +119,9 @@ insert into user
 (id, tg_id, chat_id, name, created_at, updated_at)
 values ($1, $2, $3, $4, $5, %6)`
 
+	selectHelpsForVillage = `
+	SELECT * FROM help WHERE category_id = $1 AND locality_id IN (SELECT * FROM locality WHERE parent_id IN (SELECT l2.id FROM locality AS l1 LEFT JOIN locality AS l2 on (l1.parent_id = l2.id) WHERE l1.id = $2))`
+
 	// todo: search by different languages
 	selectLocalitiesSQL = `
 SELECT l1.id, l1.type, l1.public_name_ua, l3.public_name_ua from locality as l1
@@ -124,13 +131,13 @@ where levenshtein(l1.name_ua, $1) <= 1
   AND l1.type != 'DISTRICT' AND l1.type != 'STATE' AND l1.type != 'COUNTRY';`
 )
 
-func (p *Postgres) UpsertUser(user *User) (*User, error) {
+func (p *Postgres) UpsertUser(ctx context.Context, user *User) (*User, error) {
 	var (
 		now = time.Now().UTC()
 		uid = uuid.New()
 	)
 
-	_, err := p.driver.ExecContext(p.ctx, upsertUserSQL,
+	_, err := p.driver.ExecContext(ctx, upsertUserSQL,
 		uid, user.TgID, user.ChatID, user.Name, now, now)
 
 	if err != nil {
@@ -195,4 +202,25 @@ func (p *Postgres) InsertHelp(help *Help) (*Help, error) {
 func (p *Postgres) DeleteHelp(u uuid.UUID) error {
 	// TODO implement me
 	panic("implement me")
+}
+
+func (p *Postgres) SelectHelpsByLocalityAndCategoryForVillage(context.Context, int, uuid.UUID) ([]*Help, error) {
+	rows, err := p.driver.Queryx(selectLocalitiesForVillage, s)
+	if err != nil {
+		return nil, err
+	}
+
+	var localities = make([]*LocalityRegion, 0)
+	for rows.Next() {
+		l := new(LocalityRegion)
+		err := rows.Scan(l)
+		if err != nil {
+			return nil, err
+		}
+
+		localities = append(localities, l)
+	}
+
+	return localities, nil
+	return nil, nil
 }
