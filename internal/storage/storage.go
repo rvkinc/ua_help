@@ -169,7 +169,7 @@ from app_user as u
 	join request as r on (u.id = r.creator_id)
 	join category as c on c.id = r.category_id
 	join locality as l on l.id = r.locality_id
-where u.id = $1`
+where u.id = $1 and not r.resolved`
 
 	selectExpiredRequests = `
 select 
@@ -178,7 +178,7 @@ from app_user as u
 	join request as r on (u.id = r.creator_id)
 	join category as c on c.id = r.category_id
 	join locality as l on l.id = r.locality_id
-where (r.created_at < $1 and r.updated_at is null) OR r.updated_at < $1`
+where ((r.created_at < $1 and r.updated_at is null) or r.updated_at < $1) and not r.resolved`
 
 	selectHelpsForVillageByLocalityIDAndCategoryID = `
 select u.chat_id, u.language from locality as l
@@ -204,7 +204,7 @@ select
 from request as r
 	join category as c on c.id = r.category_id
 	join locality as l on l.id = r.locality_id
-where r.id = $1`
+where r.id = $1 and not r.resolved`
 
 	resolveRequestSQL = `
 update request set resolved = false where id = $1`
