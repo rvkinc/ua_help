@@ -47,7 +47,7 @@ const (
 type category int
 
 const (
-	categoryFood category = iota
+	categoryFood category = iota + 1
 	categoryMeds
 	categoryClothes
 	categoryApartments
@@ -59,7 +59,29 @@ type handler func(*Update) error
 
 type volunteer struct {
 	categories       []category
-	categoryKeyboard []checkboxKeyboard
+	categoryKeyboard []*categoryCheckbox
+}
+
+func (v *volunteer) categoryKeyboardLayout() [][]tg.KeyboardButton {
+	layout := make([][]tg.KeyboardButton, 0, len(v.categoryKeyboard))
+	for _, key := range v.categoryKeyboard {
+		layout = append(layout, []tg.KeyboardButton{key.keyboardButton()})
+	}
+
+	return layout
+}
+
+func (v *volunteer) invertCategoryButton(msg string) (category, bool) {
+	var c category
+	for _, keyboard := range v.categoryKeyboard {
+		if keyboard.invert(msg) {
+			v.categories = append(v.categories, keyboard.category)
+			c = keyboard.category
+			return c, true
+		}
+	}
+
+	return 0, false
 }
 
 type seeker struct {
@@ -132,7 +154,7 @@ func (m *MessageHandler) handleUserRoleReply(u *Update) error {
 		d := m.state[u.chatID()]
 		d.role = roleVolunteer
 		d.volunteer = new(volunteer)
-		d.volunteer.categoryKeyboard = []checkboxKeyboard{
+		d.volunteer.categoryKeyboard = []*categoryCheckbox{
 			{text: m.Translator.Translate(categoryFoodTr, UALang), category: categoryFood, checked: false},
 			{text: m.Translator.Translate(categoryMedsTr, UALang), category: categoryMeds, checked: false},
 			{text: m.Translator.Translate(categoryClothesTr, UALang), category: categoryClothes, checked: false},
@@ -152,7 +174,7 @@ func (m *MessageHandler) handleUserRoleReply(u *Update) error {
 		msg := tg.NewMessage(u.chatID(), m.Translator.Translate(userRoleRequestTranslation, UALang))
 		msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
 			OneTimeKeyboard: false,
-			Keyboard:        checkboxKeyboardLayout(d.volunteer.categoryKeyboard),
+			Keyboard:        d.volunteer.categoryKeyboardLayout(),
 		}
 
 		_, err := m.Api.Send(msg)
@@ -176,52 +198,65 @@ const (
 	checkedCheckbox   = "✅"
 )
 
-type checkboxKeyboard struct {
+// type checkboxKeyboard struct {
+// 	buttons []*categoryCheckbox
+// }
+
+type categoryCheckbox struct {
 	text     string
 	category category
 	checked  bool
 }
 
-func (k *checkboxKeyboard) keyboardButton() tg.KeyboardButton {
+// func (k *checkboxKeyboard) keyboard() [][]tg.KeyboardButton {
+// 	layout := make([][]tg.KeyboardButton, 0, len(k.buttons))
+// 	for _, key := range k.buttons {
+// 		layout = append(layout, []tg.KeyboardButton{key.keyboardButton()})
+// 	}
+//
+// 	return layout
+// }
+
+func (b *categoryCheckbox) keyboardButton() tg.KeyboardButton {
 	var checkbox = uncheckedCheckbox
-	if k.checked {
+	if b.checked {
 		checkbox = checkedCheckbox
 	}
-	return tg.KeyboardButton{Text: checkbox + " " + k.text}
+	return tg.KeyboardButton{Text: checkbox + " " + b.text}
 }
 
-func (k *checkboxKeyboard) invert(text string) bool {
-	if strings.Contains(text, k.text) {
-		k.checked = !k.checked
+func (b *categoryCheckbox) invert(text string) bool {
+	if strings.Contains(text, b.text) {
+		b.checked = !b.checked
 		return true
 	}
 
 	return false
 }
 
-func checkboxKeyboardLayout(k []checkboxKeyboard) [][]tg.KeyboardButton {
-	layout := make([][]tg.KeyboardButton, 0, len(k))
-	for _, key := range k {
-		layout = append(layout, []tg.KeyboardButton{key.keyboardButton()})
-	}
-	return layout
-}
-
 func (m *MessageHandler) handleVolunteerCategoryCheckbox(u *Update) error {
 	d := m.state[u.chatID()]
-	var checked category
-	for _, keyboard := range d.volunteer.categoryKeyboard {
-		if keyboard.invert(u.Message.Text) {
-			d.volunteer.categories = append(d.volunteer.categories, keyboard.category)
-			checked = keyboard.category
-			break
+	// var checked category
+	// for _, keyboard := range d.volunteer.categoryKeyboard {
+	// 	if keyboard.invert(u.Message.Text) {
+	// 		d.volunteer.categories = append(d.volunteer.categories, keyboard.category)
+	// 		checked = keyboard.category
+	// 		break
+	// 	}
+	// }
+
+	c, ok := d.volunteer.invertCategoryButton(u.Message.Text)
+	if !ok {
+		_, err := m.Api.Send(tg.NewMessage(u.chatID(), m.Translator.Translate(errorChooseOption, UALang)))
+		if err != nil {
+			return err
 		}
 	}
 
-	msg := tg.NewMessage(u.chatID(), fmt.Sprintf("%d", checked))
+	msg := tg.NewMessage(u.chatID(), fmt.Sprintf("%d", c))
 	msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
 		OneTimeKeyboard: false,
-		Keyboard:        checkboxKeyboardLayout(d.volunteer.categoryKeyboard),
+		Keyboard:        d.volunteer.categoryKeyboardLayout(),
 	}
 
 	_, err := m.Api.Send(msg)

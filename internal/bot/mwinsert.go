@@ -19,6 +19,7 @@ type UserInsertMiddleware struct {
 }
 
 func (m *UserInsertMiddleware) Handle(b *tg.BotAPI, u *Update, next HandlerFunc) {
+	// todo: add context to update
 	go func() {
 		// insert unique user
 	}()
