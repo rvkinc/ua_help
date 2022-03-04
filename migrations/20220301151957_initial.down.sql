@@ -2,7 +2,7 @@ DROP TABLE IF EXISTS app_user;
 
 DROP TABLE IF EXISTS category;
 
-DROP TABLE IF EXISTS request;
+DROP TABLE IF EXISTS subscription;
 
 DROP TABLE IF EXISTS locality;
 

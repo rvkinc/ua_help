@@ -2,9 +2,5 @@
 bot:
   token: 5123336105:AAGP04EqqpBTO1AhhMAUdOzfAtitz_dop2M
 
-db:
-  server: string
-  port: 8080
-  user: user
-  password: secret
-  schema: string
+storage:
+  dsn: "postgres://postgres:secret@127.0.0.1:5432/postgres?sslmode=disable"
