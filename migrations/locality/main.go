@@ -66,7 +66,7 @@ func main() {
 
 	for _, l := range removeCommunities(localities) {
 		if _, err := tx.Exec(
-			"INSERT INTO locality(id, type, name_ru, name_ua, name_eu, public_name_ua, public_name_ru, public_name_eu, lng, lat, parent_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
+			"INSERT INTO locality(id, type, name_ru, name_ua, name_en, public_name_ua, public_name_ru, public_name_en, lng, lat, parent_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
 			l.ID,
 			l.Type,
 			l.Name.Ru,

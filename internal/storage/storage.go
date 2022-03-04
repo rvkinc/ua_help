@@ -7,10 +7,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
 )
 
-const dialect = "postgres"
+const (
+	dialect = "postgres"
+
+	uaLang = "UA"
+)
 
 type Config struct {
 	DSN string `yaml:"dsn"`
@@ -18,14 +21,21 @@ type Config struct {
 
 type Interface interface {
 	UpsertUser(context.Context, *User) (*User, error)
+	UserByID(context.Context, uuid.UUID) (*User, error)
 	SelectLocalities(context.Context, string) ([]*LocalityRegion, error)
+	SelectLocality(context.Context, int) (LocalityRegion, error)
 
-	SelectRequestsByUser(context.Context, uuid.UUID) ([]*Request, error)
-	InsertRequest(context.Context, *Request) (*Request, error)
+	SelectHelpsByLocalityAndCategoryForCity(context.Context, int, uuid.UUID) ([]*User, error)
+	SelectHelpsByLocalityAndCategoryForVillage(context.Context, int, uuid.UUID) ([]*User, error)
+
+	SelectRequestsByUser(context.Context, uuid.UUID) ([]*RequestValue, error)
+	InsertRequest(context.Context, *RequestScan) (*RequestValue, error)
 	ResolveRequest(context.Context, uuid.UUID) error
+	ExpiredRequests(context.Context, time.Time) ([]*RequestValue, error)
+	KeepRequest(ctx context.Context, requestID uuid.UUID) error
 
-	SelectHelpsByUser(context.Context, uuid.UUID) ([]*Help, error)
-	InsertHelp(context.Context, *Help) (*Help, error)
+	SelectHelpsByUser(context.Context, uuid.UUID) ([]*HelpValue, error)
+	InsertHelp(context.Context, *HelpScan) error
 	DeleteHelp(context.Context, uuid.UUID) error
 }
 
@@ -34,13 +44,13 @@ type Postgres struct {
 	driver *sqlx.DB
 }
 
-func NewPostgres(ctx context.Context, c *Config) (*Postgres, error) {
+func NewPostgres(c *Config) (*Postgres, error) {
 	db, err := sqlx.Open(dialect, c.DSN)
 	if err != nil {
 		return nil, err
 	}
 
-	err = db.PingContext(ctx)
+	err = db.PingContext(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -57,20 +67,35 @@ type (
 		TgID      int64     `db:"tg_id"`
 		ChatID    int64     `db:"chat_id"`
 		Name      string    `db:"name"`
+		Language  string    `db:"language"`
 		CreatedAt time.Time `db:"created_at"`
 		UpdatedAt time.Time `db:"updated_at"`
 	}
 
-	Request struct {
-		ID          uuid.UUID      `db:"id"`
+	RequestScan struct {
 		CreatorID   uuid.UUID      `db:"creator_id"`
 		CategoryID  uuid.UUID      `db:"category_id"`
 		LocalityID  int            `db:"locality_id"`
 		Phone       sql.NullString `db:"phone"`
 		Description string         `db:"description"`
-		Resolved    bool           `db:"resolved"`
-		CreatedAt   time.Time      `db:"created_at"`
-		DeletedAt   *time.Time     `db:"deleted_at"`
+	}
+
+	RequestValue struct {
+		ID                   uuid.UUID      `db:"id"`
+		CreatorID            uuid.UUID      `db:"creator_id"`
+		CategoryNameEN       string         `db:"name_en"`
+		CategoryNameRU       string         `db:"name_ru"`
+		CategoryNameUA       string         `db:"name_ua"`
+		LocalityPublicNameEN string         `db:"public_name_en"`
+		LocalityPublicNameRU string         `db:"public_name_ru"`
+		LocalityPublicNameUA string         `db:"public_name_ua"`
+		Language             string         `db:"language"`
+		Phone                sql.NullString `db:"phone"`
+		TgID                 string         `db:"tg_id"`
+		Description          string         `db:"description"`
+		Resolved             bool           `db:"resolved"`
+		CreatedAt            time.Time      `db:"created_at"`
+		UpdatedAt            sql.NullTime   `db:"updated_at"`
 	}
 
 	Locality struct {
@@ -102,12 +127,23 @@ type (
 		CreatedAt time.Time `db:"created_at"`
 	}
 
-	Help struct {
-		ID         uuid.UUID `db:"id"`
+	HelpScan struct {
 		CreatorID  uuid.UUID `db:"creator_id"`
 		CategoryID uuid.UUID `db:"category_id"`
 		LocalityID int       `db:"locality_id"`
-		CreatedAt  time.Time `db:"created_at"`
+	}
+
+	HelpValue struct {
+		ID                   uuid.UUID `db:"id"`
+		CreatorID            uuid.UUID `db:"creator_id"`
+		CategoryNameEN       string    `db:"name_en"`
+		CategoryNameRU       string    `db:"name_ru"`
+		CategoryNameUA       string    `db:"name_ua"`
+		LocalityPublicNameEN string    `db:"public_name_en"`
+		LocalityPublicNameRU string    `db:"public_name_ru"`
+		LocalityPublicNameUA string    `db:"public_name_ua"`
+		Language             string    `db:"language"`
+		CreatedAt            time.Time `db:"created_at"`
 	}
 )
 
@@ -115,7 +151,7 @@ const (
 	upsertUserSQL = `
 insert into user
 	(id, tg_id, chat_id, name, created_at, updated_at)
-values ($1, $2, $3, $4, $5, %6) on conflict do update name`
+values ($1, $2, $3, $4, $5, $6, $7) on conflict do update name`
 
 	// todo: search by different languages
 	// todo: sort - city first
@@ -128,24 +164,58 @@ where levenshtein(l1.name_ua, $1) <= 1
 
 	selectRequestsByUserSQL = `
 select 
-	r.id, r.creator_id, r.category_id, r.phone, r.locality_id, r.description, r.resolved, r.created_at, r.deleted_at
+	r.id, r.creator_id, c.name_en, c.name_ua, c.name_ru, r.phone, l.public_name_en, l.public_name_ua, l.public_name_ru, r.description, r.resolved, r.created_at, r.updated_at, u.language, u.tg_id
 from app_user as u
 	join request as r on (u.id = r.creator_id)
-where u.id = $1`
+	join category as c on c.id = r.category_id
+	join locality as l on l.id = r.locality_id
+where u.id = $1 and not r.resolved`
+
+	selectExpiredRequests = `
+select 
+	r.id, r.creator_id, c.name_en, c.name_ua, c.name_ru, r.phone, l.public_name_en, l.public_name_ua, l.public_name_ru, r.description, r.resolved, r.created_at, r.updated_at, u.language, u.tg_id
+from app_user as u
+	join request as r on (u.id = r.creator_id)
+	join category as c on c.id = r.category_id
+	join locality as l on l.id = r.locality_id
+where ((r.created_at < $1 and r.updated_at is null) or r.updated_at < $1) and not r.resolved`
+
+	selectHelpsForVillageByLocalityIDAndCategoryID = `
+select u.chat_id, u.language from locality as l
+    join locality as l2 on l.parent_id = l2.parent_id
+    join help as h on h.locality_id = l2.id
+	join app_user as u on h.creator_id = u.id
+where l.id = $1 and l.category = $2`
+
+	selectHelpsByLocalityIDAndCategoryID = `
+select u.chat_id, u.language from locality as l
+	join help as h on h.locality_id = l.id
+    join app_user as u on h.creator_id = u.id
+where l.id = $1 and l.category = $2`
 
 	insertRequestSQL = `
-insert into request
-    (id, creator_id, category_id, phone, locality_id, description, resolved, created_at, deleted_at) 
-values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+insert into request as r
+    (id, creator_id, category_id, phone, locality_id, description, resolved, created_at) 
+values ($1, $2, $3, $4, $5, $6, $7, $8)`
+
+	selectRequestSQL = `
+select 
+	r.id, c.name_en, c.name_ua, c.name_ru, l.public_name_en, l.public_name_ua, l.public_name_ru, r.created_at, r.updated_at, u.language, u.tg_id
+from request as r
+	join category as c on c.id = r.category_id
+	join locality as l on l.id = r.locality_id
+where r.id = $1 and not r.resolved`
 
 	resolveRequestSQL = `
 update request set resolved = false where id = $1`
 
 	selectHelpsByUserSQL = `
 select
-	h.id, h.creator_id, h.category_id, h.locality_id, h.created_at, h.deleted_at
+	h.id, h.creator_id, c.name_en, c.name_ua, c.name_ru, l.public_name_en, l.public_name_ua, l.public_name_ru, h.created_at, h.deleted_at, u.language
 from app_user as u
-	left join help as h on (u.id = h.creator_id)
+	join help as h on (u.id = h.creator_id)
+	join category as c on c.id = r.category_id
+	join locality as l on l.id = r.locality_id
 where u.id = $1`
 
 	insertHelpSQL = `
@@ -154,6 +224,9 @@ insert into help
 values ($1, $2, $3, $4, $5)`
 
 	deleteHelpSQL = `delete from help where id = $1`
+
+	keepRequestSQL = `
+update request set updated_at = now() where id = $1`
 )
 
 func (p *Postgres) UpsertUser(ctx context.Context, user *User) (*User, error) {
@@ -162,8 +235,12 @@ func (p *Postgres) UpsertUser(ctx context.Context, user *User) (*User, error) {
 		uid = uuid.New()
 	)
 
+	if user.Language == "" {
+		user.Language = uaLang
+	}
+
 	_, err := p.driver.ExecContext(ctx, upsertUserSQL,
-		uid, user.TgID, user.ChatID, user.Name, now, now)
+		uid, user.TgID, user.ChatID, user.Name, now, now, user.Language)
 
 	if err != nil {
 		return nil, err
@@ -184,35 +261,32 @@ func (p *Postgres) SelectLocalities(ctx context.Context, s string) ([]*LocalityR
 	return localities, p.driver.SelectContext(ctx, &localities, selectLocalitiesSQL, s)
 }
 
-func (p *Postgres) SelectRequestsByUser(ctx context.Context, u uuid.UUID) ([]*Request, error) {
-	var requests = make([]*Request, 0)
+func (p *Postgres) SelectRequestsByUser(ctx context.Context, u uuid.UUID) ([]*RequestValue, error) {
+	var requests = make([]*RequestValue, 0)
 	return requests, p.driver.SelectContext(ctx, &requests, selectRequestsByUserSQL, u)
 }
 
-func (p *Postgres) InsertRequest(ctx context.Context, rq *Request) (*Request, error) {
+func (p *Postgres) InsertRequest(ctx context.Context, rq *RequestScan) (*RequestValue, error) {
 	var (
 		now = time.Now().UTC()
 		uid = uuid.New()
 	)
 
 	_, err := p.driver.ExecContext(ctx, insertRequestSQL,
-		uid, rq.CreatorID, rq.CategoryID, rq.Phone, rq.LocalityID, rq.Description, rq.Resolved, now, nil)
-
+		uid, rq.CreatorID, rq.CategoryID, rq.Phone, rq.LocalityID, rq.Description, false, now)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Request{
-		ID:          uid,
-		CreatorID:   rq.CreatorID,
-		CategoryID:  rq.CategoryID,
-		LocalityID:  rq.LocalityID,
-		Phone:       rq.Phone,
-		Description: rq.Description,
-		Resolved:    rq.Resolved,
-		CreatedAt:   now,
-		DeletedAt:   nil,
-	}, nil
+	var requestValue RequestValue
+	if err = p.driver.GetContext(ctx, &requestValue, selectRequestSQL, uid); err != nil {
+		return nil, err
+	}
+
+	requestValue.Phone = rq.Phone
+	requestValue.Description = rq.Description
+
+	return &requestValue, err
 }
 
 func (p *Postgres) ResolveRequest(ctx context.Context, u uuid.UUID) error {
@@ -220,12 +294,12 @@ func (p *Postgres) ResolveRequest(ctx context.Context, u uuid.UUID) error {
 	return err
 }
 
-func (p *Postgres) SelectHelpsByUser(ctx context.Context, u uuid.UUID) ([]*Help, error) {
-	var helps = make([]*Help, 0)
+func (p *Postgres) SelectHelpsByUser(ctx context.Context, u uuid.UUID) ([]*HelpValue, error) {
+	var helps = make([]*HelpValue, 0)
 	return helps, p.driver.SelectContext(ctx, &helps, selectHelpsByUserSQL, u)
 }
 
-func (p *Postgres) InsertHelp(ctx context.Context, h *Help) (*Help, error) {
+func (p *Postgres) InsertHelp(ctx context.Context, h *HelpScan) error {
 	var (
 		now = time.Now().UTC()
 		uid = uuid.New()
@@ -234,20 +308,30 @@ func (p *Postgres) InsertHelp(ctx context.Context, h *Help) (*Help, error) {
 	_, err := p.driver.ExecContext(ctx, insertHelpSQL,
 		uid, h.CreatorID, h.CategoryID, h.LocalityID, now)
 
-	if err != nil {
-		return nil, err
-	}
-
-	return &Help{
-		ID:         uid,
-		CreatorID:  h.CreatorID,
-		CategoryID: h.CategoryID,
-		LocalityID: h.LocalityID,
-		CreatedAt:  now,
-	}, nil
+	return err
 }
 
 func (p *Postgres) DeleteHelp(ctx context.Context, u uuid.UUID) error {
 	_, err := p.driver.ExecContext(ctx, deleteHelpSQL, u)
+	return err
+}
+
+func (p *Postgres) SelectHelpsByLocalityAndCategoryForVillage(ctx context.Context, localityID int, categoryID uuid.UUID) ([]*User, error) {
+	var users = make([]*User, 0)
+	return users, p.driver.SelectContext(ctx, &users, selectHelpsForVillageByLocalityIDAndCategoryID, localityID, categoryID)
+}
+
+func (p *Postgres) SelectHelpsByLocalityAndCategoryForCity(ctx context.Context, localityID int, categoryID uuid.UUID) ([]*User, error) {
+	var users = make([]*User, 0)
+	return users, p.driver.SelectContext(ctx, &users, selectHelpsByLocalityIDAndCategoryID, localityID, categoryID)
+}
+
+func (p *Postgres) ExpiredRequests(ctx context.Context, before time.Time) ([]*RequestValue, error) {
+	var requests = make([]*RequestValue, 0)
+	return requests, p.driver.SelectContext(ctx, &requests, selectExpiredRequests, before)
+}
+
+func (p *Postgres) KeepRequest(ctx context.Context, requestID uuid.UUID) error {
+	_, err := p.driver.ExecContext(ctx, keepRequestSQL, requestID)
 	return err
 }
