@@ -319,3 +319,7 @@ func (s *Service) expiredRequests(ctx context.Context, after time.Time) ([]UserR
 	}
 	return requests, nil
 }
+
+func (s *Service) KeepRequest(ctx context.Context, requestID uuid.UUID) error {
+	return s.storage.KeepRequest(ctx, requestID)
+}

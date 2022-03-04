@@ -32,6 +32,7 @@ type Interface interface {
 	InsertRequest(context.Context, *RequestScan) (*RequestValue, error)
 	ResolveRequest(context.Context, uuid.UUID) error
 	ExpiredRequests(context.Context, time.Time) ([]*RequestValue, error)
+	KeepRequest(ctx context.Context, requestID uuid.UUID) error
 
 	SelectHelpsByUser(context.Context, uuid.UUID) ([]*HelpValue, error)
 	InsertHelp(context.Context, *HelpScan) error
@@ -223,6 +224,9 @@ insert into help
 values ($1, $2, $3, $4, $5)`
 
 	deleteHelpSQL = `delete from help where id = $1`
+
+	keepRequestSQL = `
+update request set updated_at = now() where id = $1`
 )
 
 func (p *Postgres) UpsertUser(ctx context.Context, user *User) (*User, error) {
@@ -325,4 +329,9 @@ func (p *Postgres) SelectHelpsByLocalityAndCategoryForCity(ctx context.Context, 
 func (p *Postgres) ExpiredRequests(ctx context.Context, before time.Time) ([]*RequestValue, error) {
 	var requests = make([]*RequestValue, 0)
 	return requests, p.driver.SelectContext(ctx, &requests, selectExpiredRequests, before)
+}
+
+func (p *Postgres) KeepRequest(ctx context.Context, requestID uuid.UUID) error {
+	_, err := p.driver.ExecContext(ctx, keepRequestSQL, requestID)
+	return err
 }
