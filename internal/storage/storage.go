@@ -23,10 +23,13 @@ type Interface interface {
 	UpsertUser(context.Context, *User) (*User, error)
 	SelectLocalityRegions(context.Context, string) ([]*LocalityRegion, error)
 
-	InsertHelp(context.Context, *HelpInsert) error
+	InsertHelp(context.Context, *HelpInsert) (uuid.UUID, error)
+	SelectHelpByID(context.Context, uuid.UUID) (*HelpValue, error)
 	SelectHelpsByUser(context.Context, uuid.UUID) ([]*HelpValue, error)
 	SelectHelpsByLocalityCategory(context.Context, int, uuid.UUID) ([]*HelpValue, error)
 	DeleteHelp(ctx context.Context, uuid2 uuid.UUID) error
+
+	SelectSubscriptionsByLocalityCategory(context.Context, int, uuid.UUID) ([]*HelpValue, error)
 
 	// todo: do we need to select user?
 	// SelectUserByID(context.Context, uuid.UUID) (*User, error)
