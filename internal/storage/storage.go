@@ -2,8 +2,9 @@ package storage
 
 import (
 	"context"
-	"github.com/lib/pq"
 	"time"
+
+	"github.com/lib/pq"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
