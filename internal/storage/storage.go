@@ -6,10 +6,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/lib/pq"
-
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )
 
@@ -127,15 +126,15 @@ type (
 		NameRU string `db:"name_ru"`
 		NameEN string `db:"name_en"`
 	}
+
+	Category struct {
+		NameUA string `json:"name_ua"`
+		NameRU string `json:"name_ru"`
+		NameEN string `json:"name_en"`
+	}
+
+	Categories []Category
 )
-
-type Category struct {
-	NameUA string `json:"name_ua"`
-	NameRU string `json:"name_ru"`
-	NameEN string `json:"name_en"`
-}
-
-type Categories []Category
 
 func (c *Categories) Scan(src interface{}) error {
 	b, ok := src.([]byte)
