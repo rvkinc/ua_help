@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,10 +14,6 @@ var (
 )
 
 type (
-	Message struct {
-		Text string
-	}
-
 	CreateUser struct {
 		TgID   int64
 		ChatID int64
@@ -32,42 +27,39 @@ type (
 		Name   string
 	}
 
-	CreateHelp struct {
+	CreateSubscription struct {
 		CreatorID  uuid.UUID
 		CategoryID uuid.UUID
 		LocalityID int
 	}
 
 	UserHelp struct {
-		ID        uuid.UUID
-		CreatorID uuid.UUID
-		Category  string
-		Locality  string
-	}
-
-	UserRequest struct {
 		ID          uuid.UUID
-		Category    string
-		TgID        string
-		Phone       string
+		CreatorID   uuid.UUID
+		Categories  []string
 		Locality    string
 		Description string
 		CreatedAt   time.Time
 	}
 
-	NewRequest struct {
-		CreatorID    uuid.UUID
-		CategoryID   uuid.UUID
-		TgID         int64
-		LocalityID   int
-		LocalityType string
-		Phone        string
-		Description  string
+	UserSubscription struct {
+		ID        uuid.UUID
+		CreatorID uuid.UUID
+		Category  string
+		Locality  string
+		CreatedAt time.Time
 	}
 
-	HelpMessage struct {
+	NewHelp struct {
+		CreatorID   uuid.UUID
+		CategoryIDs []uuid.UUID
+		LocalityID  int
+		Description string
+	}
+
+	SubscriptionMessage struct {
 		ChatID int64
-		UserRequest
+		UserHelp
 	}
 
 	Locality struct {
@@ -76,47 +68,37 @@ type (
 		Name       string
 		RegionName string
 	}
-
-	language string
-)
-
-const (
-	UA language = "UA"
-	EN language = "EN"
-	RU language = "RU"
 )
 
 // Service is a service implementation.
 type Service struct {
-	storage           storage.Interface
-	language          language
-	requestsExpiredCh chan []UserRequest
-	helpMessageCh     chan []HelpMessage
+	storage                storage.Interface
+	expiredHelpsCh         chan []UserHelp
+	subscriptionsMessageCh chan []SubscriptionMessage
 }
 
 // NewService returns new service implementation.
-func NewService(storage storage.Interface, language language) *Service {
+func NewService(storage storage.Interface) *Service {
 	s := &Service{
-		storage:           storage,
-		language:          language,
-		requestsExpiredCh: make(chan []UserRequest),
-		helpMessageCh:     make(chan []HelpMessage, 100),
+		storage:                storage,
+		expiredHelpsCh:         make(chan []UserHelp),
+		subscriptionsMessageCh: make(chan []SubscriptionMessage, 100),
 	}
 
-	go s.checkExpiredRequests()
+	go s.handleExpiredHelps()
 
 	return s
 }
 
-func (s *Service) checkExpiredRequests() {
+func (s *Service) handleExpiredHelps() {
 	ticker := time.NewTicker(tenDaysDuration).C
 	for range ticker {
-		requests, err := s.expiredRequests(context.Background(), tenDaysDate)
+		helps, err := s.expiredHelps(context.Background(), tenDaysDate)
 		if err != nil {
 			// log here
 			continue
 		}
-		s.requestsExpiredCh <- requests
+		s.expiredHelpsCh <- helps
 	}
 }
 
@@ -140,7 +122,7 @@ func (s *Service) NewUser(ctx context.Context, user CreateUser) (User, error) {
 
 // AutocompleteLocality returns matched localities.
 func (s *Service) AutocompleteLocality(ctx context.Context, input string) ([]Locality, error) {
-	ls, err := s.storage.SelectLocalities(ctx, input)
+	ls, err := s.storage.SelectLocalityRegions(ctx, input)
 	if err != nil {
 		return nil, err
 	}
@@ -156,52 +138,63 @@ func (s *Service) AutocompleteLocality(ctx context.Context, input string) ([]Loc
 	return localities, nil
 }
 
-// NewHelp creates new help.
-func (s *Service) NewHelp(ctx context.Context, request CreateHelp) error {
-	return s.storage.InsertHelp(ctx, &storage.HelpScan{
-		CreatorID:  request.CreatorID,
-		CategoryID: request.CategoryID,
-		LocalityID: request.LocalityID,
+// NewSubscription creates new subscription.
+func (s *Service) NewSubscription(ctx context.Context, subscription CreateSubscription) error {
+	return s.storage.InsertSubscription(ctx, &storage.SubscriptionInsert{
+		CreatorID:  subscription.CreatorID,
+		CategoryID: subscription.CategoryID,
+		LocalityID: subscription.LocalityID,
 	})
 }
 
-// UserHelps returns helps of specific userID.
-func (s *Service) UserHelps(ctx context.Context, userID uuid.UUID) ([]UserHelp, error) {
-	hs, err := s.storage.SelectHelpsByUser(ctx, userID)
+// UserSubscriptions returns subscription of specific userID.
+func (s *Service) UserSubscriptions(ctx context.Context, userID uuid.UUID) ([]UserSubscription, error) {
+	ss, err := s.storage.SelectSubscriptionsByUser(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	helps := make([]UserHelp, 0, len(hs))
-	for _, help := range hs {
-		h := UserHelp{
-			ID:        help.ID,
-			CreatorID: help.CreatorID,
+	subscriptions := make([]UserSubscription, 0, len(ss))
+	for _, subscription := range ss {
+		s := UserSubscription{
+			ID:        subscription.ID,
+			CreatorID: subscription.CreatorID,
 		}
-		h.localize(help)
-		helps = append(helps, h)
+		s.localize(subscription)
+		subscriptions = append(subscriptions, s)
 	}
-	return helps, nil
+	return subscriptions, nil
 }
 
-func (h *UserHelp) localize(help *storage.HelpValue) {
+func (h *UserHelp) localize(help *storage.Help) {
+	categories := make([]string, 0, len(help.Categories))
 	switch help.Language {
 	case "UA":
-		h.Category, h.Locality = help.CategoryNameUA, help.LocalityPublicNameUA
+		h.Locality = help.LocalityPublicNameUA
+		for _, category := range help.Categories {
+			categories = append(categories, category.NameUA)
+		}
 	case "RU":
-		h.Category, h.Locality = help.CategoryNameRU, help.LocalityPublicNameRU
+		h.Locality = help.LocalityPublicNameRU
+		for _, category := range help.Categories {
+			categories = append(categories, category.NameRU)
+		}
 	case "EN":
-		h.Category, h.Locality = help.CategoryNameEN, help.LocalityPublicNameEN
+		for _, category := range help.Categories {
+			categories = append(categories, category.NameEN)
+		}
+		h.Locality = help.LocalityPublicNameEN
 	}
+	h.Categories = categories
 }
 
-func (u *UserRequest) localize(request *storage.RequestValue) {
-	switch request.Language {
+func (us *UserSubscription) localize(subscription *storage.SubscriptionValue) {
+	switch subscription.Language {
 	case "UA":
-		u.Category, u.Locality = request.CategoryNameUA, request.LocalityPublicNameUA
+		us.Category, us.Locality = subscription.CategoryNameUA, subscription.LocalityPublicNameUA
 	case "RU":
-		u.Category, u.Locality = request.CategoryNameRU, request.LocalityPublicNameRU
+		us.Category, us.Locality = subscription.CategoryNameRU, subscription.LocalityPublicNameRU
 	case "EN":
-		u.Category, u.Locality = request.CategoryNameEN, request.LocalityPublicNameEN
+		us.Category, us.Locality = subscription.CategoryNameEN, subscription.LocalityPublicNameEN
 	}
 }
 
@@ -210,116 +203,103 @@ func (s *Service) DeleteHelp(ctx context.Context, helpID uuid.UUID) error {
 	return s.storage.DeleteHelp(ctx, helpID)
 }
 
-// NewRequest creates request.
-func (s *Service) NewRequest(ctx context.Context, request NewRequest) error {
-	var isValid bool
+// DeleteSubscription deletes specific subscription by helpID.
+func (s *Service) DeleteSubscription(ctx context.Context, subscriptionID uuid.UUID) error {
+	return s.storage.DeleteSubscription(ctx, subscriptionID)
+}
 
-	if request.Phone != "" {
-		isValid = true
-	}
-
-	requestValue, err := s.storage.InsertRequest(ctx, &storage.RequestScan{
-		CreatorID:  request.CreatorID,
-		CategoryID: request.CategoryID,
-		LocalityID: request.LocalityID,
-		Phone: sql.NullString{
-			String: request.Phone,
-			Valid:  isValid,
-		},
-		Description: request.Description,
+// NewHelp creates new help.
+func (s *Service) NewHelp(ctx context.Context, help NewHelp) error {
+	helpID, err := s.storage.InsertHelp(ctx, &storage.HelpInsert{
+		CreatorID:   help.CreatorID,
+		CategoryIDs: help.CategoryIDs,
+		LocalityID:  help.LocalityID,
+		Description: help.Description,
 	})
 	if err != nil {
 		return err
 	}
 
-	var (
-		hs []*storage.User
-	)
-
-	switch request.LocalityType {
-	case "VILLAGE", "URBAN":
-		hs, err = s.storage.SelectHelpsByLocalityAndCategoryForVillage(ctx, request.LocalityID, request.CategoryID)
-	default:
-		hs, err = s.storage.SelectHelpsByLocalityAndCategoryForCity(ctx, request.LocalityID, request.CategoryID)
-	}
-
+	helpValue, err := s.storage.SelectHelpByID(ctx, helpID)
 	if err != nil {
 		return err
 	}
 
-	helpMessages := make([]HelpMessage, 0, len(hs))
+	subscriptions, err := s.storage.SelectSubscriptionsByLocalityCategories(ctx, help.LocalityID, help.CategoryIDs)
+	if err != nil {
+		return err
+	}
 
-	for _, help := range hs {
-		u := UserRequest{
-			ID:          requestValue.ID,
-			TgID:        requestValue.TgID,
-			Phone:       requestValue.Phone.String,
-			Description: requestValue.Description,
-			CreatedAt:   requestValue.CreatedAt,
+	subscriptionMessages := make([]SubscriptionMessage, 0, len(subscriptions))
+
+	for _, subscription := range subscriptions {
+		u := UserHelp{
+			ID:          helpValue.ID,
+			CreatorID:   helpValue.CreatorID,
+			Description: helpValue.Description,
+			CreatedAt:   helpValue.CreatedAt,
 		}
-		u.localize(requestValue)
-		helpMessages = append(helpMessages, HelpMessage{
-			UserRequest: u,
-			ChatID:      help.ChatID,
+		u.localize(helpValue)
+		subscriptionMessages = append(subscriptionMessages, SubscriptionMessage{
+			UserHelp: u,
+			ChatID:   subscription.ChatID,
 		})
 	}
 
-	go s.sendHelpMessages(helpMessages)
+	go s.notifySubscriptions(subscriptionMessages)
 
 	return nil
 }
 
-func (s *Service) sendHelpMessages(helpMessages []HelpMessage) {
-	s.helpMessageCh <- helpMessages
+func (s *Service) notifySubscriptions(subscriptionMessages []SubscriptionMessage) {
+	s.subscriptionsMessageCh <- subscriptionMessages
 }
 
-// UserRequests returns user's requests.
-func (s *Service) UserRequests(ctx context.Context, userID uuid.UUID) ([]UserRequest, error) {
-	rs, err := s.storage.SelectRequestsByUser(ctx, userID)
+// UserHelps returns user's helps.
+func (s *Service) UserHelps(ctx context.Context, userID uuid.UUID) ([]UserHelp, error) {
+	hs, err := s.storage.SelectHelpsByUser(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	requests := make([]UserRequest, 0, len(rs))
-	for _, request := range rs {
-		u := UserRequest{
-			ID:          request.ID,
-			TgID:        request.TgID,
-			Phone:       request.Phone.String,
-			Description: request.Description,
-			CreatedAt:   request.CreatedAt,
+	helps := make([]UserHelp, 0, len(hs))
+	for _, help := range hs {
+		h := UserHelp{
+			ID:          help.ID,
+			CreatorID:   help.CreatorID,
+			Description: help.Description,
+			CreatedAt:   help.CreatedAt,
 		}
-		u.localize(request)
-		requests = append(requests, u)
+		h.localize(help)
+		helps = append(helps, h)
 	}
-
-	return requests, nil
+	return helps, nil
 }
 
-// DeleteRequest deletes specific request by requestID.
-func (s *Service) DeleteRequest(ctx context.Context, requestID uuid.UUID) error {
-	return s.storage.ResolveRequest(ctx, requestID)
+// DeleteHelp deletes specific help by helpID.
+func (s *Service) DeleteRequest(ctx context.Context, helpID uuid.UUID) error {
+	return s.storage.DeleteHelp(ctx, helpID)
 }
 
-func (s *Service) expiredRequests(ctx context.Context, after time.Time) ([]UserRequest, error) {
-	rs, err := s.storage.ExpiredRequests(ctx, after)
+func (s *Service) expiredHelps(ctx context.Context, after time.Time) ([]UserHelp, error) {
+	hs, err := s.storage.SelectExpiredHelps(ctx, after)
 	if err != nil {
 		return nil, err
 	}
-	requests := make([]UserRequest, 0, len(rs))
-	for _, request := range rs {
-		u := UserRequest{
-			ID:          request.ID,
-			TgID:        request.TgID,
-			Phone:       request.Phone.String,
-			Description: request.Description,
-			CreatedAt:   request.CreatedAt,
+	helps := make([]UserHelp, 0, len(hs))
+	for _, help := range hs {
+		h := UserHelp{
+			ID:          help.ID,
+			CreatorID:   help.CreatorID,
+			Description: help.Description,
+			CreatedAt:   help.CreatedAt,
 		}
-		u.localize(request)
-		requests = append(requests, u)
+		h.localize(help)
+		helps = append(helps, h)
 	}
-	return requests, nil
+	return helps, nil
 }
 
-func (s *Service) KeepRequest(ctx context.Context, requestID uuid.UUID) error {
-	return s.storage.KeepRequest(ctx, requestID)
+// KeepHelp keeps help.
+func (s *Service) KeepHelp(ctx context.Context, helpID uuid.UUID) error {
+	return s.storage.KeepHelp(ctx, helpID)
 }
