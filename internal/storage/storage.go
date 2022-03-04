@@ -2,8 +2,11 @@ package storage
 
 import (
 	"context"
-	"github.com/lib/pq"
+	"encoding/json"
+	"errors"
 	"time"
+
+	"github.com/lib/pq"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -77,32 +80,10 @@ type (
 		RegionName string `db:"region_public_name_ua"`
 	}
 
-	// Help struct {
-	// 	ID        uuid.UUID `db:"id"`
-	// 	CreatorID uuid.UUID `db:"creator_id"`
-	// 	// todo: slice of categories
-	// 	CategoryNameEN       string     `db:"name_en"`
-	// 	CategoryNameRU       string     `db:"name_ru"`
-	// 	CategoryNameUA       string     `db:"name_ua"`
-	// 	LocalityPublicNameEN string     `db:"loc_public_name_en"`
-	// 	LocalityPublicNameRU string     `db:"loc_public_name_ru"`
-	// 	LocalityPublicNameUA string     `db:"loc_public_name_ua"`
-	// 	Language             string     `db:"language"`
-	// 	Description          string     `db:"description"`
-	// 	CreatedAt            time.Time  `db:"created_at"`
-	// 	UpdatedAt            *time.Time `db:"updated_at"`
-	// 	DeletedAt            *time.Time `db:"deleted_at"`
-	// }
-
 	Help struct {
-		ID        uuid.UUID `db:"id"`
-		CreatorID uuid.UUID `db:"creator_id"`
-		// todo: slice of categories
-		Categories []struct {
-			CategoryNameEN string `db:"name_en"`
-			CategoryNameRU string `db:"name_ru"`
-			CategoryNameUA string `db:"name_ua"`
-		}
+		ID                   uuid.UUID  `db:"id"`
+		CreatorID            uuid.UUID  `db:"creator_id"`
+		Categories           Categories `db:"categories"`
 		LocalityPublicNameEN string     `db:"loc_public_name_en"`
 		LocalityPublicNameRU string     `db:"loc_public_name_ru"`
 		LocalityPublicNameUA string     `db:"loc_public_name_ua"`
@@ -140,7 +121,35 @@ type (
 		CategoryID uuid.UUID
 		LocalityID int
 	}
+
+	CategoryNames struct {
+		NameUA string `db:"name_ua"`
+		NameRU string `db:"name_ru"`
+		NameEN string `db:"name_en"`
+	}
 )
+
+type Category struct {
+	NameUA string `json:"name_ua"`
+	NameRU string `json:"name_ru"`
+	NameEN string `json:"name_en"`
+}
+
+type Categories []Category
+
+func (c *Categories) Scan(src interface{}) error {
+	b, ok := src.([]byte)
+	if !ok {
+		return errors.New("not ok")
+	}
+
+	err := json.Unmarshal(b, &c)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 
 const (
 	upsertUserSQL = `
@@ -167,9 +176,7 @@ values ($1, $2, $3, $4, $5, $6, null, null)`
 select
     h.id,
     h.creator_id,
-    c.name_ua,
-    c.name_ru,
-    c.name_en,
+    json_agg(json_build_object('name_ua', c.name_ua, 'name_ru', c.name_ru, 'name_en', c.name_en)) as categories,
     l.public_name_ua as loc_public_name_ua,
     l.public_name_ru as loc_public_name_ru,
     l.public_name_en as loc_public_name_en,
@@ -182,7 +189,8 @@ from help as h
          join app_user u on h.creator_id = u.id
          join locality l on h.locality_id = l.id
          join category c on c.id = any(h.category_ids)
-where h.id = $1`
+where h.id = $1
+group by h.id, u.language, l.public_name_ua, l.public_name_ru, l.public_name_en`
 
 	selectHelpsByLocalityCategorySQL = `
 select
@@ -211,9 +219,7 @@ where l.id = $1 and c.id = $2 and h.deleted_at is null`
 select
     h.id,
     h.creator_id,
-    c.name_ua,
-    c.name_ru,
-    c.name_en,
+    json_agg(json_build_object('name_ua', c.name_ua, 'name_ru', c.name_ru, 'name_en', c.name_en)) as categories,
     l.public_name_ua as loc_public_name_ua,
     l.public_name_ru as loc_public_name_ru,
     l.public_name_en as loc_public_name_en,
@@ -223,10 +229,11 @@ select
     h.updated_at,
     h.deleted_at
 from app_user as u
-	 join help h on h.creator_id = u.id
-	 join locality l on h.locality_id = l.id
-	 join category c on c.id = any(h.category_ids)
-where u.id = $1 and h.deleted_at is null`
+	join help h on h.creator_id = u.id
+	join locality l on h.locality_id = l.id
+	join category c on c.id = any(h.category_ids)
+where u.id = $1 and h.deleted_at is null 
+group by h.id, u.language, l.public_name_ua, l.public_name_ru, l.public_name_en`
 
 	deleteHelpSQL = `update help set deleted_at = $2 where id = $1`
 
@@ -234,9 +241,7 @@ where u.id = $1 and h.deleted_at is null`
 select
     h.id,
     h.creator_id,
-    c.name_ua,
-    c.name_ru,
-    c.name_en,
+    json_agg(json_build_object('name_ua', c.name_ua, 'name_ru', c.name_ru, 'name_en', c.name_en)) as categories,
     l.public_name_ua as loc_public_name_ua,
     l.public_name_ru as loc_public_name_ru,
     l.public_name_en as loc_public_name_en,
@@ -249,7 +254,8 @@ from app_user as u
          join help h on h.creator_id = u.id
          join locality l on h.locality_id = l.id
          join category c on c.id = any(h.category_ids)
-where ((h.created_at < $1 and h.updated_at is null) or h.updated_at < $1) and h.deleted_at is null`
+where ((h.created_at < $1 and h.updated_at is null) or h.updated_at < $1) and h.deleted_at is null
+group by h.id, u.language, l.public_name_ua, l.public_name_ru, l.public_name_en`
 
 	keepHelpSQL = `update help set updated_at = $2 where id = $1`
 
@@ -331,7 +337,12 @@ func (p *Postgres) InsertHelp(ctx context.Context, rq *HelpInsert) (uuid.UUID, e
 
 func (p *Postgres) SelectHelpByID(ctx context.Context, uid uuid.UUID) (*Help, error) {
 	var help = new(Help)
-	return help, p.driver.GetContext(ctx, help, selectHelpByIDSQL, uid)
+	err := p.driver.GetContext(ctx, help, selectHelpByIDSQL, uid)
+	if err != nil {
+		return nil, err
+	}
+
+	return help, nil
 }
 
 func (p *Postgres) SelectHelpsByLocalityCategory(ctx context.Context, localityID int, cid uuid.UUID) ([]*Help, error) {
@@ -351,7 +362,7 @@ func (p *Postgres) DeleteHelp(ctx context.Context, u uuid.UUID) error {
 
 func (p *Postgres) SelectExpiredHelps(ctx context.Context, t time.Time) ([]*Help, error) {
 	var helps = make([]*Help, 0)
-	return helps, p.driver.SelectContext(ctx, helps, selectExpiredHelps, t)
+	return helps, p.driver.SelectContext(ctx, &helps, selectExpiredHelps, t)
 }
 
 func (p *Postgres) KeepHelp(ctx context.Context, requestID uuid.UUID) error {
