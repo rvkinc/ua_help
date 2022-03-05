@@ -3,8 +3,9 @@ package bot
 import (
 	"context"
 	"fmt"
-	"github.com/rvkinc/uasocial/internal/service"
 	"strings"
+
+	"github.com/rvkinc/uasocial/internal/service"
 
 	tg "github.com/go-telegram-bot-api/telegram-bot-api"
 	"go.uber.org/zap"
@@ -17,7 +18,7 @@ type MessageHandler struct {
 	Service    *service.Service
 
 	state      map[int64]*dialog
-	categories []service.Category
+	categories service.CategoriesTranslated
 }
 
 func NewMessageHandler(ctx context.Context, api *tg.BotAPI, l *zap.Logger, s *service.Service, tr Translator) (*MessageHandler, error) {
@@ -25,15 +26,17 @@ func NewMessageHandler(ctx context.Context, api *tg.BotAPI, l *zap.Logger, s *se
 		Api:        api,
 		L:          l,
 		Translator: tr,
+		Service:    s,
 
 		state: make(map[int64]*dialog),
 	}
 
-	var err error
-	m.categories, err = s.GetCategories(ctx)
+	categories, err := s.GetCategories(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	m.categories = categories.Translate(UALang)
 
 	return m, nil
 }
@@ -160,40 +163,15 @@ func (m *MessageHandler) handleUserRoleReply(u *Update) error {
 		d.role = roleSeeker
 		d.seeker = new(seeker)
 		msg := tg.NewMessage(u.chatID(), m.Translator.Translate(userRoleRequestTranslation, UALang))
+
+		keyboardButtons := make([][]tg.KeyboardButton, len(m.categories))
+		for i, category := range m.categories {
+			keyboardButtons[i] = append(keyboardButtons[i], tg.KeyboardButton{Text: category.Name})
+		}
+
 		msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
 			OneTimeKeyboard: true,
-			Keyboard: [][]tg.KeyboardButton{
-				{
-					{
-						Text: m.Translator.Translate(categoryFoodTr, UALang),
-					},
-				},
-				{
-					{
-						Text: m.Translator.Translate(categoryMedsTr, UALang),
-					},
-				},
-				{
-					{
-						Text: m.Translator.Translate(categoryClothesTr, UALang),
-					},
-				},
-				{
-					{
-						Text: m.Translator.Translate(categoryApartmentsTr, UALang),
-					},
-				},
-				{
-					{
-						Text: m.Translator.Translate(categoryThransportTr, UALang),
-					},
-				},
-				{
-					{
-						Text: m.Translator.Translate(categoryOtherTr, UALang),
-					},
-				},
-			},
+			Keyboard:        keyboardButtons,
 		}
 
 		_, err := m.Api.Send(msg)
@@ -208,12 +186,12 @@ func (m *MessageHandler) handleUserRoleReply(u *Update) error {
 		d.role = roleVolunteer
 		d.volunteer = new(volunteer)
 		d.volunteer.categoryKeyboard = []*categoryCheckbox{
-			{text: m.Translator.Translate(categoryFoodTr, UALang), category: categoryFood, checked: false},
-			{text: m.Translator.Translate(categoryMedsTr, UALang), category: categoryMeds, checked: false},
-			{text: m.Translator.Translate(categoryClothesTr, UALang), category: categoryClothes, checked: false},
-			{text: m.Translator.Translate(categoryApartmentsTr, UALang), category: categoryApartments, checked: false},
-			{text: m.Translator.Translate(categoryThransportTr, UALang), category: categoryTransport, checked: false},
-			{text: m.Translator.Translate(categoryOtherTr, UALang), category: categoryOther, checked: false},
+			// {text: m.Translator.Translate(categoryFoodTr, UALang), category: categoryFood, checked: false},
+			// {text: m.Translator.Translate(categoryMedsTr, UALang), category: categoryMeds, checked: false},
+			// {text: m.Translator.Translate(categoryClothesTr, UALang), category: categoryClothes, checked: false},
+			// {text: m.Translator.Translate(categoryApartmentsTr, UALang), category: categoryApartments, checked: false},
+			// {text: m.Translator.Translate(categoryThransportTr, UALang), category: categoryTransport, checked: false},
+			// {text: m.Translator.Translate(categoryOtherTr, UALang), category: categoryOther, checked: false},
 		}
 		// d.volunteer.categoryKeyboard = [][]tg.KeyboardButton{
 		// 	{tg.KeyboardButton{Text: uncheckedCheckbox + " " + m.Translator.Translate(categoryFoodTr, UALang)}},

@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	UALang = "ua"
+	UALang = "UA"
 )
 
 const (
@@ -18,13 +18,6 @@ const (
 	btnOptionUserRoleVolunteer = "btn_option_user_role_volunteer"
 
 	errorChooseOption = "error_choose_option"
-
-	categoryFoodTr       = "category_food"
-	categoryMedsTr       = "category_meds"
-	categoryClothesTr    = "category_clothes"
-	categoryApartmentsTr = "category_apartments"
-	categoryThransportTr = "category_transport"
-	categoryOtherTr      = "category_other"
 )
 
 //go:embed translation.json

@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	_ "embed"
-	"github.com/rvkinc/uasocial/internal/service"
-	"github.com/rvkinc/uasocial/internal/storage"
 	"log"
 	"os"
 	"os/signal"
 	"sync"
+
+	"github.com/rvkinc/uasocial/internal/service"
+	"github.com/rvkinc/uasocial/internal/storage"
 
 	"github.com/rvkinc/uasocial/config"
 	"github.com/rvkinc/uasocial/internal/bot"

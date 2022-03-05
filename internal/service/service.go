@@ -72,7 +72,18 @@ type (
 	Category struct {
 		ID     uuid.UUID
 		NameUA string
+		NameRU string
+		NameEN string
 	}
+
+	CategoryTranslated struct {
+		ID   uuid.UUID
+		Name string
+	}
+
+	Categories []Category
+
+	CategoriesTranslated []CategoryTranslated
 )
 
 // Service is a service implementation.
@@ -304,19 +315,50 @@ func (s *Service) KeepHelp(ctx context.Context, helpID uuid.UUID) error {
 	return s.storage.KeepHelp(ctx, helpID)
 }
 
-func (s *Service) GetCategories(ctx context.Context) ([]Category, error) {
+func (s *Service) GetCategories(ctx context.Context) (Categories, error) {
 	cs, err := s.storage.SelectCategories(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	var categories = make([]Category, 0, len(cs))
+	var categories = make(Categories, 0, len(cs))
 	for _, c := range cs {
 		categories = append(categories, Category{
 			ID:     c.ID,
 			NameUA: c.NameUA,
+			NameRU: c.NameRU,
+			NameEN: c.NameEN,
 		})
 	}
 
 	return categories, nil
+}
+
+func (c *Category) Translate(lang string) CategoryTranslated {
+	switch lang {
+	case "UA":
+		return CategoryTranslated{
+			ID:   c.ID,
+			Name: c.NameUA,
+		}
+	case "RU":
+		return CategoryTranslated{
+			ID:   c.ID,
+			Name: c.NameRU,
+		}
+	case "EN":
+		return CategoryTranslated{
+			ID:   c.ID,
+			Name: c.NameEN,
+		}
+	}
+	return CategoryTranslated{}
+}
+
+func (cs *Categories) Translate(lang string) CategoriesTranslated {
+	categoriesTranslated := make(CategoriesTranslated, 0, len(*cs))
+	for _, category := range *cs {
+		categoriesTranslated = append(categoriesTranslated, category.Translate(lang))
+	}
+	return categoriesTranslated
 }
