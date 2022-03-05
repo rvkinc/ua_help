@@ -12,6 +12,9 @@ const (
 
 const (
 	userRoleRequestTranslation     = "user_role_request"
+	userCategoryRequest            = "user_category_request"
+	userLocalityRequestTranslation = "user_locality_request"
+	userLocalityReplyTranslation   = "user_locality_reply"
 	contactPhoneRequestTranslation = "contact_phone_request"
 
 	btnOptionUserRoleSeeker    = "btn_option_user_role_seeker"
