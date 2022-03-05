@@ -44,11 +44,23 @@
   "subscription_button_translation": {
     "UA": "Підписатись"
   },
+  "error_please_try_again": {
+    "UA": "Будь ласка, спробуйте ще раз"
+  },
   "volunteer_chosen_categories_header": {
     "UA": "Ваші категорії"
   },
   "volunteer_chosen_categories_footer": {
     "UA": "Щоб продовжити натискайте"
+  },
+  "volunteer_enter_description_request": {
+    "UA": "Опишіть чим ви можете допомогти, обов'язково вкажіть ваші контакти"
+  },
+  "volunteer_summary_header": {
+    "UA": "❤️ Дякуємо за Вашу доброту, Ваша інформація:"
+  },
+  "volunteer_summary_footer": {
+    "UA": "Використовуйте /my_help щоб керувати Вашими запитами."
   },
   "next_button": {
     "UA": "➡️ Далі"

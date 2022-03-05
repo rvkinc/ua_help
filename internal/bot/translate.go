@@ -34,6 +34,11 @@ const (
 
 	subscriptionRequestTranslation = "subscription_request_translation"
 	subscriptionButtonTranslation  = "subscription_button_translation"
+
+	errorPleaseTryAgainTr              = "error_please_try_again"
+	volunteerEnterDescriptionRequestTr = "volunteer_enter_description_request"
+	volunteerSummaryHeaderTr           = "volunteer_summary_header"
+	volunteerSummaryFooterTr           = "volunteer_summary_footer"
 )
 
 //go:embed translation.json
