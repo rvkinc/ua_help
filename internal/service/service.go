@@ -275,11 +275,6 @@ func (s *Service) UserHelps(ctx context.Context, userID uuid.UUID) ([]UserHelp, 
 	return helps, nil
 }
 
-// DeleteHelp deletes specific help by helpID.
-func (s *Service) DeleteRequest(ctx context.Context, helpID uuid.UUID) error {
-	return s.storage.DeleteHelp(ctx, helpID)
-}
-
 func (s *Service) expiredHelps(ctx context.Context, after time.Time) ([]UserHelp, error) {
 	hs, err := s.storage.SelectExpiredHelps(ctx, after)
 	if err != nil {

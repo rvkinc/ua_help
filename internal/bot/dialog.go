@@ -2,9 +2,10 @@ package bot
 
 import (
 	"fmt"
+	"strings"
+
 	tg "github.com/go-telegram-bot-api/telegram-bot-api"
 	"go.uber.org/zap"
-	"strings"
 )
 
 type MessageHandler struct {
@@ -150,6 +151,51 @@ func (m *MessageHandler) userRoleRequest(u *Update) error {
 func (m *MessageHandler) handleUserRoleReply(u *Update) error {
 	switch u.Message.Text {
 	case m.Translator.Translate(btnOptionUserRoleSeeker, UALang):
+		d := m.state[u.chatID()]
+		d.role = roleSeeker
+		d.seeker = new(seeker)
+		msg := tg.NewMessage(u.chatID(), m.Translator.Translate(userRoleRequestTranslation, UALang))
+		msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
+			OneTimeKeyboard: true,
+			Keyboard: [][]tg.KeyboardButton{
+				{
+					{
+						Text: m.Translator.Translate(categoryFoodTr, UALang),
+					},
+				},
+				{
+					{
+						Text: m.Translator.Translate(categoryMedsTr, UALang),
+					},
+				},
+				{
+					{
+						Text: m.Translator.Translate(categoryClothesTr, UALang),
+					},
+				},
+				{
+					{
+						Text: m.Translator.Translate(categoryApartmentsTr, UALang),
+					},
+				},
+				{
+					{
+						Text: m.Translator.Translate(categoryThransportTr, UALang),
+					},
+				},
+				{
+					{
+						Text: m.Translator.Translate(categoryOtherTr, UALang),
+					},
+				},
+			},
+		}
+
+		_, err := m.Api.Send(msg)
+		if err != nil {
+			return err
+		}
+
 	case m.Translator.Translate(btnOptionUserRoleVolunteer, UALang):
 		d := m.state[u.chatID()]
 		d.role = roleVolunteer
