@@ -111,11 +111,6 @@ func (v *volunteer) rmCategory(uid uuid.UUID) {
 	}
 }
 
-type seeker struct {
-	category service.CategoryTranslated
-	locality service.Locality
-}
-
 type dialog struct {
 	role role
 	next handler
