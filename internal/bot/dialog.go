@@ -24,7 +24,8 @@ const (
 
 const (
 	emojiCheckbox = "✅"
-	emojiItem     = "▪️"
+	emojiItem     = "🔸"
+	emojiLocation = "🏡"
 )
 
 type MessageHandler struct {
@@ -65,6 +66,9 @@ type (
 	volunteer struct {
 		categories       []*category
 		categoryKeyboard []*categoryCheckbox
+		localities       service.Localities
+		locality         service.Locality
+		description      string
 	}
 )
 
@@ -216,8 +220,11 @@ func (m *MessageHandler) handleVolunteerCategoryCheckbox(u *Update) error {
 	nextBtnText := m.Translator.Translate(nextButtonTr, UALang)
 
 	if u.Message.Text == nextBtnText && len(d.volunteer.categories) > 0 {
-		// todo: set next handler
-		return nil
+		msg := tg.NewMessage(u.chatID(), m.Translator.Translate(userLocalityRequestTranslation, UALang))
+		msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
+		_, err := m.Api.Send(msg)
+		d.next = m.handleVolunteerLocalityTextReply
+		return err
 	}
 
 	_, ok := d.volunteer.invertCategoryButton(u.Message.Text)
@@ -255,6 +262,102 @@ func (m *MessageHandler) handleVolunteerCategoryCheckbox(u *Update) error {
 		Keyboard:        d.volunteer.categoryKeyboardLayout(nextbtn),
 	}
 
+	_, err := m.Api.Send(msg)
+	return err
+}
+
+func (m *MessageHandler) handleVolunteerLocalityTextReply(u *Update) error {
+	localities, err := m.Service.AutocompleteLocality(u.ctx, strings.Title(strings.ToLower(u.Message.Text)))
+	if err != nil {
+		return err
+	}
+
+	if len(localities) == 0 {
+		msg := tg.NewMessage(u.chatID(), m.Translator.Translate(errorPleaseTryAgainTr, UALang))
+		msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
+		_, err := m.Api.Send(msg)
+		return err
+	}
+
+	keyboardButtons := make([][]tg.KeyboardButton, 0)
+	for _, locality := range localities {
+		keyboardButtons = append(keyboardButtons, []tg.KeyboardButton{{Text: fmt.Sprintf("%s, %s", locality.Name, locality.RegionName)}})
+	}
+
+	msg := tg.NewMessage(u.chatID(), m.Translator.Translate(userLocalityReplyTranslation, UALang))
+	msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
+		Keyboard: keyboardButtons,
+		// OneTimeKeyboard: true,
+		ResizeKeyboard: true,
+	}
+
+	_, err = m.Api.Send(msg)
+	if err != nil {
+		return err
+	}
+
+	m.state[u.chatID()].volunteer.localities = localities
+	m.state[u.chatID()].next = m.handleVolunteerLocalityButtonReply
+
+	return nil
+}
+
+func (m *MessageHandler) handleVolunteerLocalityButtonReply(u *Update) error {
+	d := m.state[u.chatID()]
+	for _, l := range d.volunteer.localities {
+		if fmt.Sprintf("%s, %s", l.Name, l.RegionName) == u.Message.Text {
+			d.volunteer.locality = l
+			d.next = m.handleVolunteerDescriptionTextReply
+			msg := tg.NewMessage(u.chatID(), m.Translator.Translate(volunteerEnterDescriptionRequestTr, UALang))
+			msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
+			_, err := m.Api.Send(msg)
+			return err
+		}
+	}
+
+	return m.handleVolunteerLocalityTextReply(u)
+}
+
+func (m *MessageHandler) handleVolunteerDescriptionTextReply(u *Update) error {
+	d := m.state[u.chatID()]
+	d.volunteer.description = u.Message.Text
+
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("%s\n\n", m.Translator.Translate(volunteerSummaryHeaderTr, UALang)))
+	b.WriteString(fmt.Sprintf("%s %s, %s\n", emojiLocation, d.volunteer.locality.Name, d.volunteer.locality.RegionName))
+	for _, c := range d.volunteer.categories {
+		b.WriteString(fmt.Sprintf("%s %s\n", emojiItem, c.text))
+	}
+	b.WriteString(fmt.Sprintf("%s\n\n", d.volunteer.description))
+	b.WriteString(fmt.Sprintf("<i>%s</i>\n", m.Translator.Translate(volunteerSummaryFooterTr, UALang)))
+
+	v := u.ctx.Value(UserIDCtxKey)
+	uid, ok := v.(uuid.UUID)
+	if !ok {
+		return fmt.Errorf("no user in context")
+	}
+
+	// todo: add limit
+	go func() {
+		cids := make([]uuid.UUID, len(d.volunteer.localities))
+		for _, cs := range d.volunteer.categories {
+			cids = append(cids, cs.uid)
+		}
+
+		err := m.Service.NewHelp(context.Background(), service.NewHelp{
+			CreatorID:   uid,
+			CategoryIDs: cids,
+			LocalityID:  d.volunteer.locality.ID,
+			Description: d.volunteer.description,
+		})
+
+		if err != nil {
+			m.L.Error("create new help", zap.Error(err))
+		}
+	}()
+
+	msg := tg.NewMessage(u.chatID(), b.String())
+	msg.ParseMode = "HTML"
 	_, err := m.Api.Send(msg)
 	return err
 }

@@ -22,9 +22,13 @@ const (
 
 	errorChooseOption = "error_choose_option"
 
-	volunteerChosenCategoriesHeaderTr = "volunteer_chosen_categories_header"
-	volunteerChosenCategoriesFooterTr = "volunteer_chosen_categories_footer"
-	nextButtonTr                      = "next_button"
+	volunteerChosenCategoriesHeaderTr  = "volunteer_chosen_categories_header"
+	volunteerChosenCategoriesFooterTr  = "volunteer_chosen_categories_footer"
+	nextButtonTr                       = "next_button"
+	errorPleaseTryAgainTr              = "error_please_try_again"
+	volunteerEnterDescriptionRequestTr = "volunteer_enter_description_request"
+	volunteerSummaryHeaderTr           = "volunteer_summary_header"
+	volunteerSummaryFooterTr           = "volunteer_summary_footer"
 )
 
 //go:embed translation.json

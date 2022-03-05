@@ -79,7 +79,6 @@ type (
 		Type       string `db:"type"`
 		Name       string `db:"public_name_ua"`
 		RegionName string `db:"region_public_name_ua"`
-		Leven      string `db:"leven"`
 	}
 
 	Help struct {
@@ -399,7 +398,7 @@ func (p *Postgres) SelectSubscriptionsByUser(ctx context.Context, uid uuid.UUID)
 
 func (p *Postgres) SelectSubscriptionsByLocalityCategories(ctx context.Context, l int, cids []uuid.UUID) ([]*SubscriptionValue, error) {
 	var sub = make([]*SubscriptionValue, 0)
-	return sub, p.driver.SelectContext(ctx, sub, selectSubscriptionsByLocalityCategoriesSQL, l, pq.Array(cids))
+	return sub, p.driver.SelectContext(ctx, &sub, selectSubscriptionsByLocalityCategoriesSQL, l, pq.Array(cids))
 }
 
 func (p *Postgres) DeleteSubscription(ctx context.Context, sid uuid.UUID) error {
