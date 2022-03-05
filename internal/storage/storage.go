@@ -75,6 +75,7 @@ type (
 
 	LocalityRegion struct {
 		ID         int    `db:"id"`
+		Leven      int    `db:"leven"`
 		Type       string `db:"type"`
 		Name       string `db:"public_name_ua"`
 		RegionName string `db:"region_public_name_ua"`
