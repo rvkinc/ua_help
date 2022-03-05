@@ -36,6 +36,8 @@ type Interface interface {
 	SelectSubscriptionsByUser(context.Context, uuid.UUID) ([]*SubscriptionValue, error)
 	SelectSubscriptionsByLocalityCategories(context.Context, int, []uuid.UUID) ([]*SubscriptionValue, error)
 	DeleteSubscription(context.Context, uuid.UUID) error
+
+	SelectCategories(context.Context) ([]*Category, error)
 }
 
 type Postgres struct {
@@ -63,7 +65,7 @@ func NewPostgres(c *Config) (*Postgres, error) {
 type (
 	User struct {
 		ID        uuid.UUID `db:"id"`
-		TgID      int64     `db:"tg_id"`
+		TgID      int       `db:"tg_id"`
 		ChatID    int64     `db:"chat_id"`
 		Name      string    `db:"name"`
 		Language  string    `db:"language"`
@@ -73,6 +75,7 @@ type (
 
 	LocalityRegion struct {
 		ID         int    `db:"id"`
+		Leven      int    `db:"leven"`
 		Type       string `db:"type"`
 		Name       string `db:"public_name_ua"`
 		RegionName string `db:"region_public_name_ua"`
@@ -121,27 +124,28 @@ type (
 	}
 
 	CategoryNames struct {
-		NameUA string `db:"name_ua"`
-		NameRU string `db:"name_ru"`
-		NameEN string `db:"name_en"`
-	}
-
-	Category struct {
 		NameUA string `json:"name_ua"`
 		NameRU string `json:"name_ru"`
 		NameEN string `json:"name_en"`
 	}
 
-	Categories []Category
+	Categories []CategoryNames
+
+	Category struct {
+		ID     uuid.UUID `db:"id"`
+		NameUA string    `db:"name_ua"`
+		NameRU string    `db:"name_ru"`
+		NameEN string    `db:"name_en"`
+	}
 )
 
-func (c *Categories) Scan(src interface{}) error {
+func (cs *Categories) Scan(src interface{}) error {
 	b, ok := src.([]byte)
 	if !ok {
 		return errors.New("not ok")
 	}
 
-	err := json.Unmarshal(b, &c)
+	err := json.Unmarshal(b, cs)
 	if err != nil {
 		return err
 	}
@@ -151,19 +155,24 @@ func (c *Categories) Scan(src interface{}) error {
 
 const (
 	upsertUserSQL = `
-insert into app_user
+insert into app_user as u
 	(id, tg_id, chat_id, name, language, created_at, updated_at) 
-values (:id, :tg_id, :chat_id, :name, :language, :created_at, :updated_at) 
-  	on conflict (tg_id) do update set name = :name`
+values ($1, $2, $3, $4, $5, $6, $7) 
+  	on conflict (tg_id) do update set name = $4 returning u.id`
 
-	// todo: search by different languages
-	// todo: sort - city first
 	selectLocalityRegionsSQL = `
-select l1.id, l1.type, l1.public_name_ua, l3.public_name_ua as region_public_name_ua from locality as l1
+select l1.id, l1.type, l1.public_name_ua, l3.public_name_ua as region_public_name_ua, levenshtein(l1.name_ua, $1) as leven from locality as l1
     join locality as l2 on (l1.parent_id = l2.id)
     join locality as l3 on (l2.parent_id = l3.id)
-where levenshtein(l1.name_ua, $1) <= 1
-	and l1.type != 'DISTRICT' and l1.type != 'STATE' and l1.type != 'COUNTRY';`
+where levenshtein(l1.name_ua, $1) <= 1 or levenshtein(l1.name_ru, $1) <= 1
+  and l1.type != 'DISTRICT' and l1.type != 'STATE' and l1.type != 'COUNTRY'
+order by
+    case l1.type
+        when 'CITY' then 1
+        when 'URBAN' then 2
+        when 'SETTLEMENT' then 3
+        when 'VILLAGE' then 4
+        end, leven`
 
 	insertHelpSQL = `
 insert into help
@@ -194,9 +203,7 @@ group by h.id, u.language, l.public_name_ua, l.public_name_ru, l.public_name_en`
 select
     h.id,
     h.creator_id,
-    c.name_ua,
-    c.name_ru,
-    c.name_en,
+	json_agg(json_build_object('name_ua', c.name_ua, 'name_ru', c.name_ru, 'name_en', c.name_en)) as categories,
     coalesce(reg_l.public_name_ua, l.public_name_ua) as loc_public_name_ua,
     coalesce(reg_l.public_name_ru, l.public_name_ru) as loc_public_name_ru,
     coalesce(reg_l.public_name_en, l.public_name_en) as loc_public_name_en,
@@ -211,7 +218,8 @@ from locality as l
     join help h on coalesce(reg_l.id, l.id) = h.locality_id
     join category c on c.id = any(h.category_ids)
     join app_user u on h.creator_id = u.id
-where l.id = $1 and c.id = $2 and h.deleted_at is null`
+where l.id = $1 and $2 = any(h.category_ids) and h.deleted_at is null
+group by h.id, u.language, l.public_name_ua, l.public_name_ru, l.public_name_en, loc_public_name_ua, loc_public_name_ru, loc_public_name_en`
 
 	selectHelpsByUserSQL = `
 select
@@ -300,6 +308,8 @@ from app_user as u
 where l.id = $1 and s.category_id = any($2::uuid[])`
 
 	deleteSubscriptionSQL = `update subscription set deleted_at = $2 where id = $1`
+
+	selectCategoriesSQL = `select id, name_ua, name_en, name_ru from category`
 )
 
 func (p *Postgres) UpsertUser(ctx context.Context, user *User) (*User, error) {
@@ -312,7 +322,14 @@ func (p *Postgres) UpsertUser(ctx context.Context, user *User) (*User, error) {
 	user.CreatedAt = now
 	user.UpdatedAt = now
 
-	_, err := p.driver.NamedExecContext(ctx, upsertUserSQL, user)
+	var uid uuid.UUID
+	err := p.driver.GetContext(ctx, &uid, upsertUserSQL,
+		user.ID, user.TgID, user.ChatID, user.Name, user.Language, user.CreatedAt, user.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+
+	user.ID = uid
 	return user, err
 }
 
@@ -380,10 +397,16 @@ func (p *Postgres) SelectSubscriptionsByUser(ctx context.Context, uid uuid.UUID)
 
 func (p *Postgres) SelectSubscriptionsByLocalityCategories(ctx context.Context, l int, cids []uuid.UUID) ([]*SubscriptionValue, error) {
 	var sub = make([]*SubscriptionValue, 0)
-	return sub, p.driver.SelectContext(ctx, sub, selectSubscriptionsByLocalityCategoriesSQL, l, pq.Array(cids))
+	return sub, p.driver.SelectContext(ctx, &sub, selectSubscriptionsByLocalityCategoriesSQL, l, pq.Array(cids))
 }
 
 func (p *Postgres) DeleteSubscription(ctx context.Context, sid uuid.UUID) error {
 	_, err := p.driver.ExecContext(ctx, deleteSubscriptionSQL, sid, time.Now())
 	return err
+}
+
+func (p *Postgres) SelectCategories(ctx context.Context) ([]*Category, error) {
+	var cs = make([]*Category, 0)
+	err := p.driver.SelectContext(ctx, &cs, selectCategoriesSQL)
+	return cs, err
 }

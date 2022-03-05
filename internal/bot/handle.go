@@ -1,12 +1,16 @@
 package bot
 
 import (
+	"context"
 	tg "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
-type Update struct{ *tg.Update }
+type Update struct {
+	*tg.Update
+	ctx context.Context
+}
 
-func (u *Update) User() *tg.User {
+func (u *Update) userUUID() *tg.User {
 	if u.CallbackQuery != nil {
 		return u.CallbackQuery.From
 	}

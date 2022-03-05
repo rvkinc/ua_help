@@ -8,6 +8,9 @@ import (
 	"os/signal"
 	"sync"
 
+	"github.com/rvkinc/uasocial/internal/service"
+	"github.com/rvkinc/uasocial/internal/storage"
+
 	"github.com/rvkinc/uasocial/config"
 	"github.com/rvkinc/uasocial/internal/bot"
 	"go.uber.org/zap"
@@ -30,17 +33,22 @@ func main() {
 
 	lg, err := zap.NewDevelopment()
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalln("new zap:", err)
 	}
 
 	cfg, err := config.NewConfig(configfile)
 	if err != nil {
-		lg.Fatal("parse config", zap.Error(err))
+		log.Fatalln("parse config:", err)
 	}
 
-	b, err := bot.New(ctx, cfg.BotConfig, lg, nil)
+	st, err := storage.NewPostgres(cfg.StorageConfig)
 	if err != nil {
-		lg.Fatal("run bot", zap.Error(err))
+		log.Fatalln("new postgres:", err)
+	}
+
+	b, err := bot.New(ctx, cfg.BotConfig, lg, service.NewService(st))
+	if err != nil {
+		log.Fatalln("run bot", err)
 	}
 
 	err = b.Run()

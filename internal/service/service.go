@@ -15,14 +15,14 @@ var (
 
 type (
 	CreateUser struct {
-		TgID   int64
+		TgID   int
 		ChatID int64
 		Name   string
 	}
 
 	User struct {
 		ID     uuid.UUID
-		TgID   int64
+		TgID   int
 		ChatID int64
 		Name   string
 	}
@@ -68,6 +68,24 @@ type (
 		Name       string
 		RegionName string
 	}
+
+	Localities []Locality
+
+	Category struct {
+		ID     uuid.UUID
+		NameUA string
+		NameRU string
+		NameEN string
+	}
+
+	CategoryTranslated struct {
+		ID   uuid.UUID
+		Name string
+	}
+
+	Categories []Category
+
+	CategoriesTranslated []CategoryTranslated
 )
 
 // Service is a service implementation.
@@ -103,7 +121,7 @@ func (s *Service) handleExpiredHelps() {
 }
 
 // NewUser creates new user or returns an existing.
-func (s *Service) NewUser(ctx context.Context, user CreateUser) (User, error) {
+func (s *Service) NewUser(ctx context.Context, user *CreateUser) (User, error) {
 	u, err := s.storage.UpsertUser(ctx, &storage.User{
 		TgID:   user.TgID,
 		ChatID: user.ChatID,
@@ -121,12 +139,12 @@ func (s *Service) NewUser(ctx context.Context, user CreateUser) (User, error) {
 }
 
 // AutocompleteLocality returns matched localities.
-func (s *Service) AutocompleteLocality(ctx context.Context, input string) ([]Locality, error) {
+func (s *Service) AutocompleteLocality(ctx context.Context, input string) (Localities, error) {
 	ls, err := s.storage.SelectLocalityRegions(ctx, input)
 	if err != nil {
 		return nil, err
 	}
-	localities := make([]Locality, 0, len(ls))
+	localities := make(Localities, 0, len(ls))
 	for _, locality := range ls {
 		localities = append(localities, Locality{
 			ID:         locality.ID,
@@ -275,11 +293,6 @@ func (s *Service) UserHelps(ctx context.Context, userID uuid.UUID) ([]UserHelp, 
 	return helps, nil
 }
 
-// DeleteHelp deletes specific help by helpID.
-func (s *Service) DeleteRequest(ctx context.Context, helpID uuid.UUID) error {
-	return s.storage.DeleteHelp(ctx, helpID)
-}
-
 func (s *Service) expiredHelps(ctx context.Context, after time.Time) ([]UserHelp, error) {
 	hs, err := s.storage.SelectExpiredHelps(ctx, after)
 	if err != nil {
@@ -302,4 +315,94 @@ func (s *Service) expiredHelps(ctx context.Context, after time.Time) ([]UserHelp
 // KeepHelp keeps help.
 func (s *Service) KeepHelp(ctx context.Context, helpID uuid.UUID) error {
 	return s.storage.KeepHelp(ctx, helpID)
+}
+
+func (s *Service) GetCategories(ctx context.Context) (Categories, error) {
+	cs, err := s.storage.SelectCategories(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var categories = make(Categories, 0, len(cs))
+	for _, c := range cs {
+		categories = append(categories, Category{
+			ID:     c.ID,
+			NameUA: c.NameUA,
+			NameRU: c.NameRU,
+			NameEN: c.NameEN,
+		})
+	}
+
+	return categories, nil
+}
+
+func (c *Category) Translate(lang string) CategoryTranslated {
+	switch lang {
+	case "UA":
+		return CategoryTranslated{
+			ID:   c.ID,
+			Name: c.NameUA,
+		}
+	case "RU":
+		return CategoryTranslated{
+			ID:   c.ID,
+			Name: c.NameRU,
+		}
+	case "EN":
+		return CategoryTranslated{
+			ID:   c.ID,
+			Name: c.NameEN,
+		}
+	}
+	return CategoryTranslated{}
+}
+
+func (cs *Categories) Translate(lang string) CategoriesTranslated {
+	categoriesTranslated := make(CategoriesTranslated, 0, len(*cs))
+	for _, category := range *cs {
+		categoriesTranslated = append(categoriesTranslated, category.Translate(lang))
+	}
+	return categoriesTranslated
+}
+
+func (cst *CategoriesTranslated) IDByName(name string) uuid.UUID {
+	for _, c := range *cst {
+		if c.Name == name {
+			return c.ID
+		}
+	}
+	return uuid.UUID{}
+}
+
+func (ls *Localities) LocalityByNameRegion(name, region string) Locality {
+	for _, l := range *ls {
+		if l.Name == name && l.RegionName == region {
+			return Locality{
+				ID:         l.ID,
+				Type:       l.Type,
+				Name:       l.Name,
+				RegionName: l.RegionName,
+			}
+		}
+	}
+	return Locality{}
+}
+
+func (s *Service) HelpsByCategoryLocation(ctx context.Context, location int, category uuid.UUID) ([]UserHelp, error) {
+	hs, err := s.storage.SelectHelpsByLocalityCategory(ctx, location, category)
+	if err != nil {
+		return nil, err
+	}
+	helps := make([]UserHelp, 0, len(hs))
+	for _, help := range hs {
+		h := UserHelp{
+			ID:          help.ID,
+			CreatorID:   help.CreatorID,
+			Description: help.Description,
+			CreatedAt:   help.CreatedAt,
+		}
+		h.localize(help)
+		helps = append(helps, h)
+	}
+	return helps, nil
 }
