@@ -85,6 +85,9 @@ type (
 		ID                   uuid.UUID  `db:"id"`
 		CreatorID            uuid.UUID  `db:"creator_id"`
 		Categories           Categories `db:"categories"`
+		NameUA               string     `db:"name_ua"`
+		NameRU               string     `db:"name_ru"`
+		NameEN               string     `db:"name_en"`
 		LocalityPublicNameEN string     `db:"loc_public_name_en"`
 		LocalityPublicNameRU string     `db:"loc_public_name_ru"`
 		LocalityPublicNameUA string     `db:"loc_public_name_ua"`

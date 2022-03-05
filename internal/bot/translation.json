@@ -20,15 +20,33 @@
   "btn_option_user_role_volunteer": {
     "UA": "Я волонтер"
   },
-
   "error_choose_option": {
     "UA": "Будь ласка, оберіть одну з опцій"
+  },
+  "help_categories_reply": {
+    "UA": "Категорії"
+  },
+  "help_location_reply": {
+    "UA": "Локація"
+  },
+  "help_created_at_reply": {
+    "UA": "Дата створення"
+  },
+  "help_details_translation_reply": {
+    "UA": "Деталі"
+  },
+  "helps_empty_reply": {
+    "UA": "Вибачте, але ми нічого не знайшли"
+  },
+  "subscription_request_translation": {
+    "UA": "Пропонуємо підписатись, щоб не пропустити нові волонтерські оголошення"
+  },
+  "subscription_button_translation": {
+    "UA": "Підписатись"
   },
   "error_please_try_again": {
     "UA": "Будь ласка, спробуйте ще раз"
   },
-
-
   "volunteer_chosen_categories_header": {
     "UA": "Ваші категорії"
   },
@@ -44,8 +62,6 @@
   "volunteer_summary_footer": {
     "UA": "Використовуйте /my_help щоб керувати Вашими запитами."
   },
-
-
   "next_button": {
     "UA": "➡️ Далі"
   }

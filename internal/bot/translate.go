@@ -22,9 +22,19 @@ const (
 
 	errorChooseOption = "error_choose_option"
 
-	volunteerChosenCategoriesHeaderTr  = "volunteer_chosen_categories_header"
-	volunteerChosenCategoriesFooterTr  = "volunteer_chosen_categories_footer"
-	nextButtonTr                       = "next_button"
+	volunteerChosenCategoriesHeaderTr = "volunteer_chosen_categories_header"
+	volunteerChosenCategoriesFooterTr = "volunteer_chosen_categories_footer"
+	nextButtonTr                      = "next_button"
+
+	helpCategoriesTranslation = "help_categories_reply"
+	helpLocalityTranslation   = "help_location_reply"
+	helpCreateAtTranslation   = "help_created_at_reply"
+	helpDetailsTranslation    = "help_details_translation_reply"
+	helpsEmptyTranslation     = "helps_empty_reply"
+
+	subscriptionRequestTranslation = "subscription_request_translation"
+	subscriptionButtonTranslation  = "subscription_button_translation"
+
 	errorPleaseTryAgainTr              = "error_please_try_again"
 	volunteerEnterDescriptionRequestTr = "volunteer_enter_description_request"
 	volunteerSummaryHeaderTr           = "volunteer_summary_header"
