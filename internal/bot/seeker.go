@@ -81,6 +81,16 @@ func (m *MessageHandler) handleSeekerLocalityTextReply(u *Update) error {
 		return err
 	}
 
+	if len(localities) == 0 {
+		msg := tg.NewMessage(u.chatID(), m.Translator.Translate(errorPleaseTryAgainTr, UALang))
+		msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
+		_, err = m.Api.Send(msg)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
 	keyboardButtons := make([][]tg.KeyboardButton, 0)
 
 	for _, locality := range localities {
@@ -110,6 +120,19 @@ func (m *MessageHandler) handleSeekerLocalityTextReply(u *Update) error {
 }
 
 func (m *MessageHandler) handleSeekerLocalityButtonReply(u *Update) error {
+
+	var found bool
+	for _, l := range m.state[u.chatID()].seeker.localities {
+		if fmt.Sprintf("%s, %s", l.Name, l.RegionName) == u.Message.Text {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return m.handleSeekerLocalityTextReply(u)
+	}
+
 	vals := strings.Split(u.Message.Text, ", ")
 
 	seeker := m.state[u.chatID()].seeker
@@ -133,7 +156,7 @@ func (m *MessageHandler) handleSeekerLocalityButtonReply(u *Update) error {
 		builder := strings.Builder{}
 		builder.WriteString(fmt.Sprintf("%s: %s\n", m.Translator.Translate(helpCategoriesTranslation, UALang), strings.Join(help.Categories, ", ")))
 		builder.WriteString(fmt.Sprintf("%s: %s\n", m.Translator.Translate(helpLocalityTranslation, UALang), help.Locality))
-		builder.WriteString(fmt.Sprintf("%s: %s\n", m.Translator.Translate(helpCreateAtTranslation, UALang), help.CreatedAt))
+		builder.WriteString(fmt.Sprintf("%s: %s\n", m.Translator.Translate(helpCreateAtTranslation, UALang), help.CreatedAt.Format("Mon, 02 Jan 2006 15:04:05")))
 		builder.WriteString(fmt.Sprintf("%s: \n%s", m.Translator.Translate(helpDetailsTranslation, UALang), help.Description))
 		_, err = m.Api.Send(tg.NewMessage(u.chatID(), builder.String()))
 		if err != nil {

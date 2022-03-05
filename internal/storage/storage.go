@@ -85,9 +85,6 @@ type (
 		ID                   uuid.UUID  `db:"id"`
 		CreatorID            uuid.UUID  `db:"creator_id"`
 		Categories           Categories `db:"categories"`
-		NameUA               string     `db:"name_ua"`
-		NameRU               string     `db:"name_ru"`
-		NameEN               string     `db:"name_en"`
 		LocalityPublicNameEN string     `db:"loc_public_name_en"`
 		LocalityPublicNameRU string     `db:"loc_public_name_ru"`
 		LocalityPublicNameUA string     `db:"loc_public_name_ua"`
@@ -127,9 +124,9 @@ type (
 	}
 
 	CategoryNames struct {
-		NameUA string `db:"name_ua"`
-		NameRU string `db:"name_ru"`
-		NameEN string `db:"name_en"`
+		NameUA string `json:"name_ua"`
+		NameRU string `json:"name_ru"`
+		NameEN string `json:"name_en"`
 	}
 
 	Categories []CategoryNames
@@ -142,13 +139,13 @@ type (
 	}
 )
 
-func (c *Categories) Scan(src interface{}) error {
+func (cs *Categories) Scan(src interface{}) error {
 	b, ok := src.([]byte)
 	if !ok {
 		return errors.New("not ok")
 	}
 
-	err := json.Unmarshal(b, &c)
+	err := json.Unmarshal(b, cs)
 	if err != nil {
 		return err
 	}
@@ -206,9 +203,7 @@ group by h.id, u.language, l.public_name_ua, l.public_name_ru, l.public_name_en`
 select
     h.id,
     h.creator_id,
-    c.name_ua,
-    c.name_ru,
-    c.name_en,
+	json_agg(json_build_object('name_ua', c.name_ua, 'name_ru', c.name_ru, 'name_en', c.name_en)) as categories,
     coalesce(reg_l.public_name_ua, l.public_name_ua) as loc_public_name_ua,
     coalesce(reg_l.public_name_ru, l.public_name_ru) as loc_public_name_ru,
     coalesce(reg_l.public_name_en, l.public_name_en) as loc_public_name_en,
@@ -223,7 +218,8 @@ from locality as l
     join help h on coalesce(reg_l.id, l.id) = h.locality_id
     join category c on c.id = any(h.category_ids)
     join app_user u on h.creator_id = u.id
-where l.id = $1 and c.id = $2 and h.deleted_at is null`
+where l.id = $1 and $2 = any(h.category_ids) and h.deleted_at is null
+group by h.id, u.language, l.public_name_ua, l.public_name_ru, l.public_name_en, loc_public_name_ua, loc_public_name_ru, loc_public_name_en`
 
 	selectHelpsByUserSQL = `
 select
