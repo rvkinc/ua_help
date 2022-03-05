@@ -159,28 +159,7 @@ func (m *MessageHandler) userRoleRequest(u *Update) error {
 func (m *MessageHandler) handleUserRoleReply(u *Update) error {
 	switch u.Message.Text {
 	case m.Translator.Translate(btnOptionUserRoleSeeker, UALang):
-		d := m.state[u.chatID()]
-		d.role = roleSeeker
-		d.seeker = new(seeker)
-		msg := tg.NewMessage(u.chatID(), m.Translator.Translate(userRoleRequestTranslation, UALang))
-
-		keyboardButtons := make([][]tg.KeyboardButton, len(m.categories))
-		for i, category := range m.categories {
-			keyboardButtons[i] = append(keyboardButtons[i], tg.KeyboardButton{Text: category.Name})
-		}
-
-		msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
-			OneTimeKeyboard: true,
-			Keyboard:        keyboardButtons,
-		}
-
-		_, err := m.Api.Send(msg)
-		if err != nil {
-			return err
-		}
-
-		m.state[u.chatID()].next = m.handleSeekerCategory
-
+		return m.seekerUserRoleReply(u.chatID())
 	case m.Translator.Translate(btnOptionUserRoleVolunteer, UALang):
 		d := m.state[u.chatID()]
 		d.role = roleVolunteer

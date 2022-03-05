@@ -362,3 +362,12 @@ func (cs *Categories) Translate(lang string) CategoriesTranslated {
 	}
 	return categoriesTranslated
 }
+
+func (cst *CategoriesTranslated) IDByName(name string) uuid.UUID {
+	for _, c := range *cst {
+		if c.Name == name {
+			return c.ID
+		}
+	}
+	return uuid.UUID{}
+}
