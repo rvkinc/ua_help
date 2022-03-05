@@ -64,5 +64,11 @@
   },
   "next_button": {
     "UA": "➡️ Далі"
+  },
+  "delete_button": {
+    "UA": "Видалити"
+  },
+  "help_delete_success": {
+    "UA": "Допомогу успішно видалено"
   }
 }

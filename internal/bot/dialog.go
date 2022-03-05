@@ -19,7 +19,9 @@ const (
 )
 
 const (
-	cmdStart = "start"
+	cmdStart           = "start"
+	cmdMyHelp          = "my_help"
+	cmdMySubscriptions = "my_subscriptions"
 )
 
 const (
@@ -126,12 +128,26 @@ type dialog struct {
 }
 
 func (m *MessageHandler) Handle(_ *tg.BotAPI, u *Update) {
+	if u.CallbackQuery != nil {
+		err := m.handleCallbackQuery(u)
+		if err != nil {
+			m.L.Error("handle callback query", zap.Error(err))
+		}
+		return
+	}
+
 	if u.Message != nil && u.Message.IsCommand() {
 		switch u.Message.Command() {
 		case cmdStart:
 			err := m.userRoleRequest(u)
 			if err != nil {
 				m.L.Error("handle start cmd", zap.Error(err))
+			}
+			return
+		case cmdMyHelp:
+			err := m.handleMyHelp(u)
+			if err != nil {
+				m.L.Error("handle cmd", zap.Error(err), zap.String("cmd", cmdMyHelp))
 			}
 			return
 		default:
@@ -153,6 +169,75 @@ func (m *MessageHandler) Handle(_ *tg.BotAPI, u *Update) {
 	if err != nil {
 		m.L.Error("handle request", zap.Error(err))
 	}
+}
+
+func (m *MessageHandler) handleMyHelp(u *Update) error {
+	v := u.ctx.Value(UserIDCtxKey)
+	uid, ok := v.(uuid.UUID)
+	if !ok {
+		return fmt.Errorf("no user in context")
+	}
+
+	helps, err := m.Service.UserHelps(u.ctx, uid)
+	if err != nil {
+		return fmt.Errorf("get user helps: %w", err)
+	}
+
+	for _, h := range helps {
+		var b strings.Builder
+		b.WriteString(fmt.Sprintf("%s %s\n", emojiLocation, h.Locality))
+		for _, c := range h.Categories {
+			b.WriteString(fmt.Sprintf("%s %s\n", emojiItem, c))
+		}
+		b.WriteString(fmt.Sprintf("%s\n\n", h.Description))
+		b.WriteString(fmt.Sprintf("<i>%s</i>\n", m.Translator.Translate(volunteerSummaryFooterTr, UALang)))
+
+		queryString := fmt.Sprintf("%s|%s", cmdMyHelp, h.ID.String())
+		msg := tg.NewMessage(u.chatID(), b.String())
+		msg.ParseMode = "HTML"
+		msg.ReplyMarkup = tg.InlineKeyboardMarkup{InlineKeyboard: [][]tg.InlineKeyboardButton{
+			{
+				{
+					Text:         m.Translator.Translate(deleteButtonTr, UALang),
+					CallbackData: &queryString,
+				},
+			},
+		}}
+		_, err := m.Api.Send(msg)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *MessageHandler) handleCallbackQuery(u *Update) error {
+	d := u.CallbackQuery.Data
+	qslice := strings.Split(d, "|")
+
+	if len(qslice) != 2 {
+		return fmt.Errorf("invalid callbackquery")
+	}
+
+	switch qslice[0] {
+	case cmdMyHelp:
+		uid, err := uuid.Parse(qslice[1])
+		if err != nil {
+			return fmt.Errorf("parse uuid: %w", err)
+		}
+
+		err = m.Service.DeleteHelp(u.ctx, uid)
+		if err != nil {
+			return fmt.Errorf("parse uuid: %w", err)
+		}
+
+		msg := tg.NewMessage(u.chatID(), m.Translator.Translate(helpDeleteSuccess, UALang))
+		_, err = m.Api.Send(msg)
+		return err
+	}
+
+	return nil
 }
 
 func (m *MessageHandler) userRoleRequest(u *Update) error {

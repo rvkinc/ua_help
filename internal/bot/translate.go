@@ -39,6 +39,8 @@ const (
 	volunteerEnterDescriptionRequestTr = "volunteer_enter_description_request"
 	volunteerSummaryHeaderTr           = "volunteer_summary_header"
 	volunteerSummaryFooterTr           = "volunteer_summary_footer"
+	deleteButtonTr                     = "delete_button"
+	helpDeleteSuccess                  = "help_delete_success"
 )
 
 //go:embed translation.json
