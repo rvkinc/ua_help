@@ -15,14 +15,14 @@ var (
 
 type (
 	CreateUser struct {
-		TgID   int64
+		TgID   int
 		ChatID int64
 		Name   string
 	}
 
 	User struct {
 		ID     uuid.UUID
-		TgID   int64
+		TgID   int
 		ChatID int64
 		Name   string
 	}
@@ -103,7 +103,7 @@ func (s *Service) handleExpiredHelps() {
 }
 
 // NewUser creates new user or returns an existing.
-func (s *Service) NewUser(ctx context.Context, user CreateUser) (User, error) {
+func (s *Service) NewUser(ctx context.Context, user *CreateUser) (User, error) {
 	u, err := s.storage.UpsertUser(ctx, &storage.User{
 		TgID:   user.TgID,
 		ChatID: user.ChatID,

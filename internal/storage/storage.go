@@ -63,7 +63,7 @@ func NewPostgres(c *Config) (*Postgres, error) {
 type (
 	User struct {
 		ID        uuid.UUID `db:"id"`
-		TgID      int64     `db:"tg_id"`
+		TgID      int       `db:"tg_id"`
 		ChatID    int64     `db:"chat_id"`
 		Name      string    `db:"name"`
 		Language  string    `db:"language"`
@@ -151,10 +151,10 @@ func (c *Categories) Scan(src interface{}) error {
 
 const (
 	upsertUserSQL = `
-insert into app_user
+insert into app_user as u
 	(id, tg_id, chat_id, name, language, created_at, updated_at) 
-values (:id, :tg_id, :chat_id, :name, :language, :created_at, :updated_at) 
-  	on conflict (tg_id) do update set name = :name`
+values ($1, $2, $3, $4, $5, $6, $7) 
+  	on conflict (tg_id) do update set name = $4 returning u.id`
 
 	// todo: search by different languages
 	// todo: sort - city first
@@ -312,7 +312,14 @@ func (p *Postgres) UpsertUser(ctx context.Context, user *User) (*User, error) {
 	user.CreatedAt = now
 	user.UpdatedAt = now
 
-	_, err := p.driver.NamedExecContext(ctx, upsertUserSQL, user)
+	var uid uuid.UUID
+	err := p.driver.GetContext(ctx, &uid, upsertUserSQL,
+		user.ID, user.TgID, user.ChatID, user.Name, user.Language, user.CreatedAt, user.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+
+	user.ID = uid
 	return user, err
 }
 
