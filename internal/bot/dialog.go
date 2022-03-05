@@ -2,9 +2,10 @@ package bot
 
 import (
 	"fmt"
+	"strings"
+
 	tg "github.com/go-telegram-bot-api/telegram-bot-api"
 	"go.uber.org/zap"
-	"strings"
 )
 
 type MessageHandler struct {
@@ -15,12 +16,7 @@ type MessageHandler struct {
 	state map[int64]*dialog
 }
 
-func NewMessageHandler(api *tg.BotAPI, l *zap.Logger) *MessageHandler {
-	tr, err := NewTranslator()
-	if err != nil {
-		panic(err)
-	}
-
+func NewMessageHandler(api *tg.BotAPI, l *zap.Logger, tr Translator) *MessageHandler {
 	m := &MessageHandler{
 		Api:        api,
 		L:          l,
