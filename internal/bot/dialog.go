@@ -94,6 +94,8 @@ func (v *volunteer) invertCategoryButton(msg string) (category, bool) {
 }
 
 type seeker struct {
+	category service.CategoryTranslated
+	locality service.Locality
 }
 
 type dialog struct {
@@ -153,6 +155,39 @@ func (m *MessageHandler) userRoleRequest(u *Update) error {
 	}
 
 	m.state[u.chatID()] = &dialog{next: m.handleUserRoleReply}
+	return nil
+}
+
+func (m *MessageHandler) handleUserLocalityReply(u *Update) error {
+	msg := tg.NewMessage(u.chatID(), m.Translator.Translate(userLocalityReplyTranslation, UALang))
+
+	localities, err := m.Service.AutocompleteLocality(u.ctx, u.Message.Text)
+	if err != nil {
+		return err
+	}
+
+	keyboardButtons := make([][]tg.KeyboardButton, 0)
+
+	for _, locality := range localities {
+		fullLocality := fmt.Sprintf("%s, %s", locality.Name, locality.RegionName)
+		keyboardButtons = append(keyboardButtons, []tg.KeyboardButton{
+			{
+				Text: fullLocality,
+			},
+		})
+	}
+
+	msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
+		OneTimeKeyboard: true,
+		Keyboard:        keyboardButtons,
+		ResizeKeyboard:  true,
+	}
+
+	_, err = m.Api.Send(msg)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
