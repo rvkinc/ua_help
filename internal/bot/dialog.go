@@ -3,12 +3,27 @@ package bot
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"strings"
 
 	"github.com/rvkinc/uasocial/internal/service"
 
 	tg "github.com/go-telegram-bot-api/telegram-bot-api"
 	"go.uber.org/zap"
+)
+
+const (
+	roleVolunteer role = iota + 1
+	roleSeeker
+)
+
+const (
+	cmdStart = "start"
+)
+
+const (
+	emojiCheckbox = "✅"
+	emojiItem     = "▪️"
 )
 
 type MessageHandler struct {
@@ -41,56 +56,59 @@ func NewMessageHandler(ctx context.Context, api *tg.BotAPI, l *zap.Logger, s *se
 	return m, nil
 }
 
-// bot commands
-const (
-	startCmd = "start"
+type (
+	role int
+
+	handler func(*Update) error
+
+	volunteer struct {
+		categories       []*category
+		categoryKeyboard []*categoryCheckbox
+	}
 )
 
-type role int
-
-const (
-	roleVolunteer role = iota + 1
-	roleSeeker
-)
-
-type category int
-
-const (
-	categoryFood category = iota + 1
-	categoryMeds
-	categoryClothes
-	categoryApartments
-	categoryTransport
-	categoryOther
-)
-
-type handler func(*Update) error
-
-type volunteer struct {
-	categories       []category
-	categoryKeyboard []*categoryCheckbox
-}
-
-func (v *volunteer) categoryKeyboardLayout() [][]tg.KeyboardButton {
+func (v *volunteer) categoryKeyboardLayout(nextbtn string) [][]tg.KeyboardButton {
 	layout := make([][]tg.KeyboardButton, 0, len(v.categoryKeyboard))
 	for _, key := range v.categoryKeyboard {
-		layout = append(layout, []tg.KeyboardButton{key.keyboardButton()})
+		if len(layout) == 0 || len(layout[len(layout)-1]) == 2 {
+			layout = append(layout, []tg.KeyboardButton{key.keyboardButton()})
+			continue
+		}
+
+		layout[len(layout)-1] = append(layout[len(layout)-1], key.keyboardButton())
+	}
+
+	if nextbtn != "" {
+		layout = append(layout, []tg.KeyboardButton{{Text: nextbtn}})
 	}
 
 	return layout
 }
 
-func (v *volunteer) invertCategoryButton(msg string) (category, bool) {
-	var c category
+func (v *volunteer) invertCategoryButton(msg string) (uuid.UUID, bool) {
 	for _, keyboard := range v.categoryKeyboard {
-		if keyboard.invert(msg) {
-			v.categories = append(v.categories, keyboard.category)
-			c = keyboard.category
-			return c, true
+		if ok, checked := keyboard.invert(msg); ok {
+			if checked {
+				v.categories = append(v.categories, &category{
+					uid:  keyboard.uid,
+					text: keyboard.text,
+				})
+			} else {
+				v.rmCategory(keyboard.uid)
+			}
+			return keyboard.uid, true
 		}
 	}
 
-	return 0, false
+	return uuid.UUID{}, false
+}
+
+func (v *volunteer) rmCategory(uid uuid.UUID) {
+	for i, x := range v.categories {
+		if x.uid == uid {
+			v.categories = append(v.categories[:i], v.categories[i+1:]...)
+		}
+	}
 }
 
 type seeker struct {
@@ -106,10 +124,9 @@ type dialog struct {
 }
 
 func (m *MessageHandler) Handle(_ *tg.BotAPI, u *Update) {
-
 	if u.Message != nil && u.Message.IsCommand() {
 		switch u.Message.Command() {
-		case startCmd:
+		case cmdStart:
 			err := m.userRoleRequest(u)
 			if err != nil {
 				m.L.Error("handle start cmd", zap.Error(err))
@@ -137,10 +154,10 @@ func (m *MessageHandler) Handle(_ *tg.BotAPI, u *Update) {
 }
 
 func (m *MessageHandler) userRoleRequest(u *Update) error {
-
 	msg := tg.NewMessage(u.chatID(), m.Translator.Translate(userRoleRequestTranslation, UALang))
 	msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
 		OneTimeKeyboard: false,
+		ResizeKeyboard:  true,
 		Keyboard: [][]tg.KeyboardButton{
 			{tg.KeyboardButton{Text: m.Translator.Translate(btnOptionUserRoleSeeker, UALang)}},
 			{tg.KeyboardButton{Text: m.Translator.Translate(btnOptionUserRoleVolunteer, UALang)}},
@@ -164,27 +181,20 @@ func (m *MessageHandler) handleUserRoleReply(u *Update) error {
 		d := m.state[u.chatID()]
 		d.role = roleVolunteer
 		d.volunteer = new(volunteer)
-		d.volunteer.categoryKeyboard = []*categoryCheckbox{
-			// {text: m.Translator.Translate(categoryFoodTr, UALang), category: categoryFood, checked: false},
-			// {text: m.Translator.Translate(categoryMedsTr, UALang), category: categoryMeds, checked: false},
-			// {text: m.Translator.Translate(categoryClothesTr, UALang), category: categoryClothes, checked: false},
-			// {text: m.Translator.Translate(categoryApartmentsTr, UALang), category: categoryApartments, checked: false},
-			// {text: m.Translator.Translate(categoryThransportTr, UALang), category: categoryTransport, checked: false},
-			// {text: m.Translator.Translate(categoryOtherTr, UALang), category: categoryOther, checked: false},
+		d.volunteer.categoryKeyboard = make([]*categoryCheckbox, 0, len(m.categories))
+		for _, cc := range m.categories {
+			d.volunteer.categoryKeyboard = append(d.volunteer.categoryKeyboard, &categoryCheckbox{
+				category: category{uid: cc.ID, text: cc.Name},
+				checked:  false,
+			})
 		}
-		// d.volunteer.categoryKeyboard = [][]tg.KeyboardButton{
-		// 	{tg.KeyboardButton{Text: uncheckedCheckbox + " " + m.Translator.Translate(categoryFoodTr, UALang)}},
-		// 	{tg.KeyboardButton{Text: uncheckedCheckbox + " " + m.Translator.Translate(categoryMedsTr, UALang)}},
-		// 	{tg.KeyboardButton{Text: uncheckedCheckbox + " " + m.Translator.Translate(categoryClothesTr, UALang)}},
-		// 	{tg.KeyboardButton{Text: uncheckedCheckbox + " " + m.Translator.Translate(categoryApartmentsTr, UALang)}},
-		// 	{tg.KeyboardButton{Text: uncheckedCheckbox + " " + m.Translator.Translate(categoryThransportTr, UALang)}},
-		// 	{tg.KeyboardButton{Text: uncheckedCheckbox + " " + m.Translator.Translate(categoryOtherTr, UALang)}},
-		// }
 
 		msg := tg.NewMessage(u.chatID(), m.Translator.Translate(userRoleRequestTranslation, UALang))
 		msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
 			OneTimeKeyboard: false,
-			Keyboard:        d.volunteer.categoryKeyboardLayout(),
+			ResizeKeyboard:  true,
+			Selective:       true,
+			Keyboard:        d.volunteer.categoryKeyboardLayout(""),
 		}
 
 		_, err := m.Api.Send(msg)
@@ -203,92 +213,79 @@ func (m *MessageHandler) handleUserRoleReply(u *Update) error {
 	return nil
 }
 
-const (
-	uncheckedCheckbox = "🔲"
-	checkedCheckbox   = "✅"
-)
-
-// type checkboxKeyboard struct {
-// 	buttons []*categoryCheckbox
-// }
-
-type categoryCheckbox struct {
-	text     string
-	category category
-	checked  bool
-}
-
-// func (k *checkboxKeyboard) keyboard() [][]tg.KeyboardButton {
-// 	layout := make([][]tg.KeyboardButton, 0, len(k.buttons))
-// 	for _, key := range k.buttons {
-// 		layout = append(layout, []tg.KeyboardButton{key.keyboardButton()})
-// 	}
-//
-// 	return layout
-// }
-
-func (b *categoryCheckbox) keyboardButton() tg.KeyboardButton {
-	var checkbox = uncheckedCheckbox
-	if b.checked {
-		checkbox = checkedCheckbox
-	}
-	return tg.KeyboardButton{Text: checkbox + " " + b.text}
-}
-
-func (b *categoryCheckbox) invert(text string) bool {
-	if strings.Contains(text, b.text) {
-		b.checked = !b.checked
-		return true
-	}
-
-	return false
-}
-
 func (m *MessageHandler) handleVolunteerCategoryCheckbox(u *Update) error {
 	d := m.state[u.chatID()]
-	// var checked category
-	// for _, keyboard := range d.volunteer.categoryKeyboard {
-	// 	if keyboard.invert(u.Message.Text) {
-	// 		d.volunteer.categories = append(d.volunteer.categories, keyboard.category)
-	// 		checked = keyboard.category
-	// 		break
-	// 	}
-	// }
+	nextBtnText := m.Translator.Translate(nextButtonTr, UALang)
 
-	c, ok := d.volunteer.invertCategoryButton(u.Message.Text)
+	if u.Message.Text == nextBtnText && len(d.volunteer.categories) > 0 {
+		// todo: set next handler
+		return nil
+	}
+
+	_, ok := d.volunteer.invertCategoryButton(u.Message.Text)
 	if !ok {
+		// garbage value
 		_, err := m.Api.Send(tg.NewMessage(u.chatID(), m.Translator.Translate(errorChooseOption, UALang)))
 		if err != nil {
 			return err
 		}
+
+		return nil
 	}
 
-	msg := tg.NewMessage(u.chatID(), fmt.Sprintf("%d", c))
+	var txt string
+	if len(d.volunteer.categories) != 0 {
+		txt = fmt.Sprintf("%s:\n\n", m.Translator.Translate(volunteerChosenCategoriesHeaderTr, UALang))
+		for _, c := range d.volunteer.categories {
+			txt += fmt.Sprintf("%s %s\n", emojiItem, c.text)
+		}
+		txt += fmt.Sprintf("%s %s", m.Translator.Translate(volunteerChosenCategoriesFooterTr, UALang), m.Translator.Translate(nextButtonTr, UALang))
+	} else {
+		txt = m.Translator.Translate(errorChooseOption, UALang)
+	}
+
+	// show or hide next button
+	nextbtn := ""
+	if len(d.volunteer.categories) > 0 {
+		nextbtn = m.Translator.Translate(nextButtonTr, UALang)
+	}
+
+	msg := tg.NewMessage(u.chatID(), txt)
 	msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
 		OneTimeKeyboard: false,
-		Keyboard:        d.volunteer.categoryKeyboardLayout(),
+		ResizeKeyboard:  true,
+		Keyboard:        d.volunteer.categoryKeyboardLayout(nextbtn),
 	}
 
 	_, err := m.Api.Send(msg)
 	return err
 }
 
-// func (m *MessageHandler) contactPhoneRequest(u *Update) {
-// 	msg := tg.NewMessage(u.chatID(), "Your contact number")
-// 	msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
-// 		OneTimeKeyboard: true,
-// 		Keyboard: [][]tg.KeyboardButton{
-// 			{
-// 				tg.KeyboardButton{
-// 					Text:           "Contact number",
-// 					RequestContact: true,
-// 				},
-// 			},
-// 		},
-// 	}
-//
-// 	_, err := m.Api.Send(msg)
-// 	if err != nil {
-// 		m.L.Error("send message", zap.Error(err))
-// 	}
-// }
+type (
+	categoryCheckbox struct {
+		category
+		checked bool
+	}
+
+	category struct {
+		uid  uuid.UUID
+		text string
+	}
+)
+
+func (b *categoryCheckbox) keyboardButton() tg.KeyboardButton {
+	if b.checked {
+		return tg.KeyboardButton{Text: emojiCheckbox + " " + b.text}
+	}
+
+	return tg.KeyboardButton{Text: b.text}
+}
+
+func (b *categoryCheckbox) invert(text string) (ok, checked bool) {
+	if strings.Contains(text, b.text) {
+		b.checked = !b.checked
+		return true, b.checked
+	}
+
+	return false, false
+}

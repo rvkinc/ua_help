@@ -18,6 +18,10 @@ const (
 	btnOptionUserRoleVolunteer = "btn_option_user_role_volunteer"
 
 	errorChooseOption = "error_choose_option"
+
+	volunteerChosenCategoriesHeaderTr = "volunteer_chosen_categories_header"
+	volunteerChosenCategoriesFooterTr = "volunteer_chosen_categories_footer"
+	nextButtonTr                      = "next_button"
 )
 
 //go:embed translation.json

@@ -17,5 +17,15 @@
 
   "error_choose_option": {
     "UA": "Будь ласка, оберіть одну з опцій"
+  },
+
+  "volunteer_chosen_categories_header": {
+    "UA": "Ваші категорії"
+  },
+  "volunteer_chosen_categories_footer": {
+    "UA": "Щоб продовжити натискайте"
+  },
+  "next_button": {
+    "UA": "➡️ Далі"
   }
 }
