@@ -159,14 +159,19 @@ insert into app_user as u
 values ($1, $2, $3, $4, $5, $6, $7) 
   	on conflict (tg_id) do update set name = $4 returning u.id`
 
-	// todo: search by different languages
-	// todo: sort - city first
 	selectLocalityRegionsSQL = `
-select l1.id, l1.type, l1.public_name_ua, l3.public_name_ua as region_public_name_ua from locality as l1
+select l1.id, l1.type, l1.public_name_ua, l3.public_name_ua as region_public_name_ua, levenshtein(l1.name_ua, $1) as leven from locality as l1
     join locality as l2 on (l1.parent_id = l2.id)
     join locality as l3 on (l2.parent_id = l3.id)
-where levenshtein(l1.name_ua, $1) <= 1
-	and l1.type != 'DISTRICT' and l1.type != 'STATE' and l1.type != 'COUNTRY';`
+where levenshtein(l1.name_ua, $1) <= 1 or levenshtein(l1.name_ru, $1) <= 1
+  and l1.type != 'DISTRICT' and l1.type != 'STATE' and l1.type != 'COUNTRY'
+order by
+    case l1.type
+        when 'CITY' then 1
+        when 'URBAN' then 2
+        when 'SETTLEMENT' then 3
+        when 'VILLAGE' then 4
+        end, leven`
 
 	insertHelpSQL = `
 insert into help
