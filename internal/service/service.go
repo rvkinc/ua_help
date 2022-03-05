@@ -387,3 +387,22 @@ func (ls *Localities) LocalityByNameRegion(name, region string) Locality {
 	}
 	return Locality{}
 }
+
+func (s *Service) HelpsByCategoryLocation(ctx context.Context, location int, category uuid.UUID) ([]UserHelp, error) {
+	hs, err := s.storage.SelectHelpsByLocalityCategory(ctx, location, category)
+	if err != nil {
+		return nil, err
+	}
+	helps := make([]UserHelp, 0, len(hs))
+	for _, help := range hs {
+		h := UserHelp{
+			ID:          help.ID,
+			CreatorID:   help.CreatorID,
+			Description: help.Description,
+			CreatedAt:   help.CreatedAt,
+		}
+		h.localize(help)
+		helps = append(helps, h)
+	}
+	return helps, nil
+}
