@@ -33,7 +33,10 @@ func New(ctx context.Context, config *Config, l *zap.Logger, s *service.Service)
 
 	recoveryMiddleware := NewRecoverMiddleware(l)
 	upsertMiddleware := NewUserUpsertMiddleware(ctx, l, s, api, tr)
-	h := NewMessageHandler(api, l, tr)
+	h, err := NewMessageHandler(ctx, api, l, s, tr)
+	if err != nil {
+		return nil, err
+	}
 
 	stack := NewStack()
 	stack.Use(recoveryMiddleware)
