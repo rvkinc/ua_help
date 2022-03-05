@@ -36,6 +36,8 @@ type Interface interface {
 	SelectSubscriptionsByUser(context.Context, uuid.UUID) ([]*SubscriptionValue, error)
 	SelectSubscriptionsByLocalityCategories(context.Context, int, []uuid.UUID) ([]*SubscriptionValue, error)
 	DeleteSubscription(context.Context, uuid.UUID) error
+
+	SelectCategories(context.Context) ([]*Category, error)
 }
 
 type Postgres struct {
@@ -126,13 +128,14 @@ type (
 		NameEN string `db:"name_en"`
 	}
 
-	Category struct {
-		NameUA string `json:"name_ua"`
-		NameRU string `json:"name_ru"`
-		NameEN string `json:"name_en"`
-	}
+	Categories []CategoryNames
 
-	Categories []Category
+	Category struct {
+		ID     uuid.UUID `db:"id"`
+		NameUA string    `db:"name_ua"`
+		NameRU string    `db:"name_ru"`
+		NameEN string    `db:"name_en"`
+	}
 )
 
 func (c *Categories) Scan(src interface{}) error {
@@ -300,6 +303,8 @@ from app_user as u
 where l.id = $1 and s.category_id = any($2::uuid[])`
 
 	deleteSubscriptionSQL = `update subscription set deleted_at = $2 where id = $1`
+
+	selectCategoriesSQL = `select id, name_ua, name_en, name_ru from category`
 )
 
 func (p *Postgres) UpsertUser(ctx context.Context, user *User) (*User, error) {
@@ -393,4 +398,10 @@ func (p *Postgres) SelectSubscriptionsByLocalityCategories(ctx context.Context, 
 func (p *Postgres) DeleteSubscription(ctx context.Context, sid uuid.UUID) error {
 	_, err := p.driver.ExecContext(ctx, deleteSubscriptionSQL, sid, time.Now())
 	return err
+}
+
+func (p *Postgres) SelectCategories(ctx context.Context) ([]*Category, error) {
+	var cs = make([]*Category, 0)
+	err := p.driver.SelectContext(ctx, &cs, selectCategoriesSQL)
+	return cs, err
 }

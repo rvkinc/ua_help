@@ -1,7 +1,9 @@
 package bot
 
 import (
+	"context"
 	"fmt"
+	"github.com/rvkinc/uasocial/internal/service"
 	"strings"
 
 	tg "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -12,11 +14,13 @@ type MessageHandler struct {
 	Api        *tg.BotAPI
 	L          *zap.Logger
 	Translator Translator
+	Service    *service.Service
 
-	state map[int64]*dialog
+	state      map[int64]*dialog
+	categories []service.Category
 }
 
-func NewMessageHandler(api *tg.BotAPI, l *zap.Logger, tr Translator) *MessageHandler {
+func NewMessageHandler(ctx context.Context, api *tg.BotAPI, l *zap.Logger, s *service.Service, tr Translator) (*MessageHandler, error) {
 	m := &MessageHandler{
 		Api:        api,
 		L:          l,
@@ -25,7 +29,13 @@ func NewMessageHandler(api *tg.BotAPI, l *zap.Logger, tr Translator) *MessageHan
 		state: make(map[int64]*dialog),
 	}
 
-	return m
+	var err error
+	m.categories, err = s.GetCategories(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return m, nil
 }
 
 // bot commands

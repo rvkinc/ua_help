@@ -68,6 +68,11 @@ type (
 		Name       string
 		RegionName string
 	}
+
+	Category struct {
+		ID     uuid.UUID
+		NameUA string
+	}
 )
 
 // Service is a service implementation.
@@ -297,4 +302,21 @@ func (s *Service) expiredHelps(ctx context.Context, after time.Time) ([]UserHelp
 // KeepHelp keeps help.
 func (s *Service) KeepHelp(ctx context.Context, helpID uuid.UUID) error {
 	return s.storage.KeepHelp(ctx, helpID)
+}
+
+func (s *Service) GetCategories(ctx context.Context) ([]Category, error) {
+	cs, err := s.storage.SelectCategories(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var categories = make([]Category, 0, len(cs))
+	for _, c := range cs {
+		categories = append(categories, Category{
+			ID:     c.ID,
+			NameUA: c.NameUA,
+		})
+	}
+
+	return categories, nil
 }
