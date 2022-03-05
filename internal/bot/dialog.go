@@ -307,6 +307,7 @@ func (m *MessageHandler) handleVolunteerCategoryCheckbox(u *Update) error {
 	if u.Message.Text == nextBtnText && len(d.volunteer.categories) > 0 {
 		msg := tg.NewMessage(u.chatID(), m.Translator.Translate(userLocalityRequestTranslation, UALang))
 		msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
+		msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
 		_, err := m.Api.Send(msg)
 		d.next = m.handleVolunteerLocalityTextReply
 		return err
@@ -424,7 +425,7 @@ func (m *MessageHandler) handleVolunteerDescriptionTextReply(u *Update) error {
 
 	// todo: add limit
 	go func() {
-		cids := make([]uuid.UUID, len(d.volunteer.localities))
+		cids := make([]uuid.UUID, 0, len(d.volunteer.categories))
 		for _, cs := range d.volunteer.categories {
 			cids = append(cids, cs.uid)
 		}
