@@ -191,6 +191,8 @@ func (m *MessageHandler) handleUserRoleReply(u *Update) error {
 			return err
 		}
 
+		m.state[u.chatID()].next = m.handleSeekerCategory
+
 	case m.Translator.Translate(btnOptionUserRoleVolunteer, UALang):
 		d := m.state[u.chatID()]
 		d.role = roleVolunteer
