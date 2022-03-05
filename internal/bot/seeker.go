@@ -1,13 +1,17 @@
 package bot
 
 import (
+	"fmt"
+	"strings"
+
 	tg "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/rvkinc/uasocial/internal/service"
 )
 
 type seeker struct {
-	category service.CategoryTranslated
-	locality service.Locality
+	category   service.CategoryTranslated
+	localities service.Localities
+	locality   service.Locality
 }
 
 func (m *MessageHandler) seekerUserRoleReply(chatID int64) error {
@@ -62,19 +66,53 @@ func (m *MessageHandler) handleUserCategoryReply(u *Update) error {
 		return err
 	}
 
-	m.state[u.chatID()].next = m.handleUserLocalityReply
+	m.state[u.chatID()].next = m.handleSeekerLocalityTextReply
 
 	return nil
 }
 
-func (m *MessageHandler) handleSeekerCategory(u *Update) error {
+func (m *MessageHandler) handleSeekerLocalityTextReply(u *Update) error {
+	msg := tg.NewMessage(u.chatID(), m.Translator.Translate(userLocalityReplyTranslation, UALang))
 
-	// msg := tg.NewMessage(u.chatID(), m.Translator.Translate(userRoleRequestTranslation, UALang))
+	localities, err := m.Service.AutocompleteLocality(u.ctx, u.Message.Text)
+	if err != nil {
+		return err
+	}
 
-	// m.Service.AutocompleteLocality(u.ctx)
-	// categoryID := m.categories.UUIDByName(u.Message.Text)
+	keyboardButtons := make([][]tg.KeyboardButton, 0)
 
-	// m.Service.GetCategories()
+	for _, locality := range localities {
+		fullLocality := fmt.Sprintf("%s, %s", locality.Name, locality.RegionName)
+		keyboardButtons = append(keyboardButtons, []tg.KeyboardButton{
+			{
+				Text: fullLocality,
+			},
+		})
+	}
+
+	msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
+		OneTimeKeyboard: true,
+		Keyboard:        keyboardButtons,
+		ResizeKeyboard:  true,
+	}
+
+	_, err = m.Api.Send(msg)
+	if err != nil {
+		return err
+	}
+
+	m.state[u.chatID()].seeker.localities = localities
+	m.state[u.chatID()].next = m.handleSeekerLocalityButtonReply
+
+	return nil
+}
+
+func (m *MessageHandler) handleSeekerLocalityButtonReply(u *Update) error {
+	vals := strings.Split(u.Message.Text, ", ")
+
+	seeker := m.state[u.chatID()].seeker
+	seeker.locality = seeker.localities.LocalityByNameRegion(vals[0], vals[1])
+	seeker.localities = nil
 
 	return nil
 }

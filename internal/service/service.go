@@ -69,6 +69,8 @@ type (
 		RegionName string
 	}
 
+	Localities []Locality
+
 	Category struct {
 		ID     uuid.UUID
 		NameUA string
@@ -137,12 +139,12 @@ func (s *Service) NewUser(ctx context.Context, user *CreateUser) (User, error) {
 }
 
 // AutocompleteLocality returns matched localities.
-func (s *Service) AutocompleteLocality(ctx context.Context, input string) ([]Locality, error) {
+func (s *Service) AutocompleteLocality(ctx context.Context, input string) (Localities, error) {
 	ls, err := s.storage.SelectLocalityRegions(ctx, input)
 	if err != nil {
 		return nil, err
 	}
-	localities := make([]Locality, 0, len(ls))
+	localities := make(Localities, 0, len(ls))
 	for _, locality := range ls {
 		localities = append(localities, Locality{
 			ID:         locality.ID,
@@ -370,4 +372,18 @@ func (cst *CategoriesTranslated) IDByName(name string) uuid.UUID {
 		}
 	}
 	return uuid.UUID{}
+}
+
+func (ls *Localities) LocalityByNameRegion(name, region string) Locality {
+	for _, l := range *ls {
+		if l.Name == name && l.RegionName == region {
+			return Locality{
+				ID:         l.ID,
+				Type:       l.Type,
+				Name:       l.Name,
+				RegionName: l.RegionName,
+			}
+		}
+	}
+	return Locality{}
 }

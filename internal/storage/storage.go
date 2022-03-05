@@ -78,6 +78,7 @@ type (
 		Type       string `db:"type"`
 		Name       string `db:"public_name_ua"`
 		RegionName string `db:"region_public_name_ua"`
+		Leven      string `db:"leven"`
 	}
 
 	Help struct {
