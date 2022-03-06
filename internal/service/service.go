@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,6 +12,8 @@ import (
 var (
 	tenDaysDuration = time.Hour * 24 * 10
 	tenDaysDate     = time.Now().AddDate(0, 0, -10)
+
+	ErrAlreadyExists = errors.New("already exists")
 )
 
 type (
@@ -95,6 +98,8 @@ type Service struct {
 	subscriptionsMessageCh chan []SubscriptionMessage
 }
 
+func (s *Service) Subscriptions() chan []SubscriptionMessage { return s.subscriptionsMessageCh }
+
 // NewService returns new service implementation.
 func NewService(storage storage.Interface) *Service {
 	s := &Service{
@@ -158,11 +163,17 @@ func (s *Service) AutocompleteLocality(ctx context.Context, input string) (Local
 
 // NewSubscription creates new subscription.
 func (s *Service) NewSubscription(ctx context.Context, subscription CreateSubscription) error {
-	return s.storage.InsertSubscription(ctx, &storage.SubscriptionInsert{
+	err := s.storage.InsertSubscription(ctx, &storage.SubscriptionInsert{
 		CreatorID:  subscription.CreatorID,
 		CategoryID: subscription.CategoryID,
 		LocalityID: subscription.LocalityID,
 	})
+
+	if errors.Is(err, storage.ErrUniqueViolation) {
+		return ErrAlreadyExists
+	}
+
+	return err
 }
 
 // UserSubscriptions returns subscription of specific userID.
@@ -176,6 +187,7 @@ func (s *Service) UserSubscriptions(ctx context.Context, userID uuid.UUID) ([]Us
 		s := UserSubscription{
 			ID:        subscription.ID,
 			CreatorID: subscription.CreatorID,
+			CreatedAt: subscription.CreatedAt,
 		}
 		s.localize(subscription)
 		subscriptions = append(subscriptions, s)

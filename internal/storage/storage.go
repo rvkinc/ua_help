@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"time"
@@ -62,6 +63,38 @@ func NewPostgres(c *Config) (*Postgres, error) {
 	}, nil
 }
 
+// Storage layer errors
+var (
+	ErrUniqueViolation = errors.New("unique violation")
+	ErrNotFound        = errors.New("not found")
+)
+
+// ErrFromCode parses Postgres error code and returns corresponding storage error
+// for non Postgres related or unknown errors returns pqerr
+//
+// more error codes: https://github.com/omeid/pgerror/blob/master/pgerror.go
+func ErrFromCode(pqerr error) error {
+	if pqerr == nil {
+		return nil
+	}
+
+	if errors.Is(pqerr, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+
+	e, ok := pqerr.(*pq.Error)
+	if !ok {
+		return pqerr
+	}
+
+	switch e.Code {
+	case "23505":
+		return ErrUniqueViolation
+	default:
+		return e
+	}
+}
+
 type (
 	User struct {
 		ID        uuid.UUID `db:"id"`
@@ -105,7 +138,7 @@ type (
 	SubscriptionValue struct {
 		ID                   uuid.UUID `db:"id"`
 		CreatorID            uuid.UUID `db:"creator_id"`
-		CategoryID           int       `db:"category_id"`
+		CategoryID           uuid.UUID `db:"category_id"`
 		ChatID               int64     `db:"chat_id"`
 		Language             string    `db:"language"`
 		CategoryNameEN       string    `db:"name_en"`
@@ -318,7 +351,7 @@ func (p *Postgres) UpsertUser(ctx context.Context, user *User) (*User, error) {
 		user.Language = uaLang
 	}
 
-	var now = time.Now().UTC()
+	var now = time.Now()
 	user.CreatedAt = now
 	user.UpdatedAt = now
 
@@ -326,87 +359,82 @@ func (p *Postgres) UpsertUser(ctx context.Context, user *User) (*User, error) {
 	err := p.driver.GetContext(ctx, &uid, upsertUserSQL,
 		user.ID, user.TgID, user.ChatID, user.Name, user.Language, user.CreatedAt, user.UpdatedAt)
 	if err != nil {
-		return nil, err
+		return nil, ErrFromCode(err)
 	}
 
 	user.ID = uid
-	return user, err
+	return user, nil
 }
 
 func (p *Postgres) SelectLocalityRegions(ctx context.Context, s string) ([]*LocalityRegion, error) {
 	var localities = make([]*LocalityRegion, 0)
-	return localities, p.driver.SelectContext(ctx, &localities, selectLocalityRegionsSQL, s)
+	return localities, ErrFromCode(p.driver.SelectContext(ctx, &localities, selectLocalityRegionsSQL, s))
 }
 
 func (p *Postgres) InsertHelp(ctx context.Context, rq *HelpInsert) (uuid.UUID, error) {
 	var (
-		now = time.Now().UTC()
+		now = time.Now()
 		uid = uuid.New()
 	)
 
 	_, err := p.driver.ExecContext(ctx, insertHelpSQL,
 		uid, rq.CreatorID, pq.Array(rq.CategoryIDs), rq.LocalityID, rq.Description, now)
 
-	return uid, err
+	return uid, ErrFromCode(err)
 }
 
 func (p *Postgres) SelectHelpByID(ctx context.Context, uid uuid.UUID) (*Help, error) {
 	var help = new(Help)
-	err := p.driver.GetContext(ctx, help, selectHelpByIDSQL, uid)
-	if err != nil {
-		return nil, err
-	}
-
-	return help, nil
+	return help, ErrFromCode(p.driver.GetContext(ctx, help, selectHelpByIDSQL, uid))
 }
 
 func (p *Postgres) SelectHelpsByLocalityCategory(ctx context.Context, localityID int, cid uuid.UUID) ([]*Help, error) {
 	var helps = make([]*Help, 0)
-	return helps, p.driver.SelectContext(ctx, &helps, selectHelpsByLocalityCategorySQL, localityID, cid)
+	return helps, ErrFromCode(p.driver.SelectContext(ctx, &helps, selectHelpsByLocalityCategorySQL, localityID, cid))
 }
 
 func (p *Postgres) SelectHelpsByUser(ctx context.Context, uid uuid.UUID) ([]*Help, error) {
 	var helps = make([]*Help, 0)
-	return helps, p.driver.SelectContext(ctx, &helps, selectHelpsByUserSQL, uid)
+	return helps, ErrFromCode(p.driver.SelectContext(ctx, &helps, selectHelpsByUserSQL, uid))
 }
 
 func (p *Postgres) DeleteHelp(ctx context.Context, u uuid.UUID) error {
 	_, err := p.driver.ExecContext(ctx, deleteHelpSQL, u, time.Now())
-	return err
+	return ErrFromCode(err)
 }
 
 func (p *Postgres) SelectExpiredHelps(ctx context.Context, t time.Time) ([]*Help, error) {
 	var helps = make([]*Help, 0)
-	return helps, p.driver.SelectContext(ctx, &helps, selectExpiredHelps, t)
+	return helps, ErrFromCode(p.driver.SelectContext(ctx, &helps, selectExpiredHelps, t))
 }
 
 func (p *Postgres) KeepHelp(ctx context.Context, requestID uuid.UUID) error {
 	_, err := p.driver.ExecContext(ctx, keepHelpSQL, requestID, time.Now())
-	return err
+	return ErrFromCode(err)
 }
 
 func (p *Postgres) InsertSubscription(ctx context.Context, s *SubscriptionInsert) error {
-	_, err := p.driver.ExecContext(ctx, insertSubscriptionSQL, uuid.New(), s.CreatorID, s.CategoryID, s.LocalityID, time.Now().UTC())
-	return err
+	_, err := p.driver.ExecContext(ctx, insertSubscriptionSQL, uuid.New(), s.CreatorID, s.CategoryID, s.LocalityID, time.Now())
+	return ErrFromCode(err)
 }
 
 func (p *Postgres) SelectSubscriptionsByUser(ctx context.Context, uid uuid.UUID) ([]*SubscriptionValue, error) {
 	var sub = make([]*SubscriptionValue, 0)
-	return sub, p.driver.SelectContext(ctx, sub, selectSubscriptionsByUserSQL, uid)
+	return sub, ErrFromCode(p.driver.SelectContext(ctx, &sub, selectSubscriptionsByUserSQL, uid))
 }
 
 func (p *Postgres) SelectSubscriptionsByLocalityCategories(ctx context.Context, l int, cids []uuid.UUID) ([]*SubscriptionValue, error) {
 	var sub = make([]*SubscriptionValue, 0)
-	return sub, p.driver.SelectContext(ctx, &sub, selectSubscriptionsByLocalityCategoriesSQL, l, pq.Array(cids))
+	return sub, ErrFromCode(p.driver.SelectContext(ctx, &sub, selectSubscriptionsByLocalityCategoriesSQL, l, pq.Array(cids)))
 }
 
 func (p *Postgres) DeleteSubscription(ctx context.Context, sid uuid.UUID) error {
 	_, err := p.driver.ExecContext(ctx, deleteSubscriptionSQL, sid, time.Now())
-	return err
+	return ErrFromCode(err)
 }
 
 func (p *Postgres) SelectCategories(ctx context.Context) ([]*Category, error) {
 	var cs = make([]*Category, 0)
 	err := p.driver.SelectContext(ctx, &cs, selectCategoriesSQL)
-	return cs, err
+	return cs, ErrFromCode(err)
 }

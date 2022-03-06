@@ -2,61 +2,104 @@ package bot
 
 import (
 	"encoding/json"
+	"fmt"
+	"time"
 
 	_ "embed"
 )
 
 const (
 	UALang = "UA"
-)
 
-const (
-	userRoleRequestTranslation     = "user_role_request"
-	userCategoryRequest            = "user_category_request"
-	userLocalityRequestTranslation = "user_locality_request"
-	userLocalityReplyTranslation   = "user_locality_reply"
-	contactPhoneRequestTranslation = "contact_phone_request"
+	userRoleRequestTr     = "user_role_request"
+	userLocalityRequestTr = "user_locality_request"
+	userLocalityReplyTr   = "user_locality_reply"
 
-	btnOptionUserRoleSeeker    = "btn_option_user_role_seeker"
-	btnOptionUserRoleVolunteer = "btn_option_user_role_volunteer"
+	seekerCategoryRequestTr           = "seeker_category_request"
+	seekerHelpsEmptyTr                = "seeker_helps_empty"
+	seekerSubscriptionProposalTr      = "seeker_subscription_proposal"
+	seekerLookingForVolunteersTr      = "seeker_looking_for_volunteers"
+	seekerSubscriptionCreateSuccessTr = "seeker_subscription_create_success"
+	seekerSubscriptionAlreadyExistsTr = "seeker_subscription_already_exists"
+	seekerSubscriptionUpdateHeaderTr  = "seeker_subscription_update_header"
 
-	errorChooseOption = "error_choose_option"
-
-	volunteerChosenCategoriesHeaderTr = "volunteer_chosen_categories_header"
-	volunteerChosenCategoriesFooterTr = "volunteer_chosen_categories_footer"
-	nextButtonTr                      = "next_button"
-
-	helpCategoriesTranslation = "help_categories_reply"
-	helpLocalityTranslation   = "help_location_reply"
-	helpCreateAtTranslation   = "help_created_at_reply"
-	helpDetailsTranslation    = "help_details_translation_reply"
-	helpsEmptyTranslation     = "helps_empty_reply"
-
-	subscriptionRequestTranslation = "subscription_request_translation"
-	subscriptionButtonTranslation  = "subscription_button_translation"
-
-	errorPleaseTryAgainTr              = "error_please_try_again"
+	volunteerChosenCategoriesHeaderTr  = "volunteer_chosen_categories_header"
+	volunteerChosenCategoriesFooterTr  = "volunteer_chosen_categories_footer"
 	volunteerEnterDescriptionRequestTr = "volunteer_enter_description_request"
 	volunteerSummaryHeaderTr           = "volunteer_summary_header"
 	volunteerSummaryFooterTr           = "volunteer_summary_footer"
-	deleteButtonTr                     = "delete_button"
-	helpDeleteSuccess                  = "help_delete_success"
+
+	btnOptionRoleSeekerTr    = "btn_option_role_seeker"
+	btnOptionUserVolunteerTr = "btn_option_role_volunteer"
+	btnOptionNextTr          = "btn_option_next"
+	btnOptionSubscribeTr     = "btn_option_subscribe"
+	btnOptionDeleteTr        = "bdn_option_delete"
+
+	deleteHelpSuccessTr         = "delete_help_success"
+	deleteSubscriptionSuccessTr = "delete_subscription_success"
+
+	errorChooseOptionTr    = "error_choose_option"
+	errorPleaseTryAgainTr  = "error_please_try_again"
+	errorNoSubscriptionsTr = "error_no_subscriptions"
+	error500Tr             = "error_500"
+
+	cmdSupportTr = "cmd_support"
+)
+
+const (
+	weekDaysKey = "week_days"
+	monthKey    = "months"
 )
 
 //go:embed translation.json
-var translations []byte // nolint:gochecknoglobals
+var translations []byte
 
-type Translator interface {
-	Translate(key, lang string) string
+//go:embed translation_dt.json
+var dtTranslations []byte
+
+type Localizer struct {
+	textKeys map[string]map[string]string
+	timeKeys map[string]map[string][]string
 }
 
-type Tr map[string]map[string]string
+func NewLocalizer() (*Localizer, error) {
+	var l = new(Localizer)
 
-func (t Tr) Translate(key, lang string) string {
-	return t[key][lang]
+	var txtMap = make(map[string]map[string]string)
+	err := json.Unmarshal(translations, &txtMap)
+	if err != nil {
+		return nil, err
+	}
+
+	var timeMap = make(map[string]map[string][]string)
+	err = json.Unmarshal(dtTranslations, &timeMap)
+	if err != nil {
+		return nil, err
+	}
+
+	l.textKeys = txtMap
+	l.timeKeys = timeMap
+	return l, nil
 }
 
-func NewTranslator() (Tr, error) {
-	var trmap = make(map[string]map[string]string)
-	return trmap, json.Unmarshal(translations, &trmap)
+func (l *Localizer) Translate(key, lang string) string { return l.textKeys[key][lang] }
+
+func (l *Localizer) FormatDateTime(t time.Time, lang string) string {
+	return fmt.Sprintf("%s %s", l.FormatDate(t, lang), l.FormatTime(t))
+}
+
+func (l *Localizer) FormatTime(t time.Time) string {
+	return t.Format("15:04")
+}
+
+func (l *Localizer) FormatDate(t time.Time, lang string) string {
+	return fmt.Sprintf("%s %d %s", l.WeekDay(t.Weekday(), lang), t.Day(), l.Month(t.Month(), lang))
+}
+
+func (l *Localizer) Month(month time.Month, lang string) string {
+	return l.timeKeys[monthKey][lang][month-1]
+}
+
+func (l *Localizer) WeekDay(weekday time.Weekday, lang string) string {
+	return l.timeKeys[weekDaysKey][lang][weekday]
 }

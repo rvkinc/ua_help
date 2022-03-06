@@ -2,53 +2,38 @@
   "user_role_request": {
     "UA": "Привіт, для початку вкажіть вашу роль"
   },
-  "contact_phone_request": {
-    "UA": "Вкажіть контактний номер - вручну, або оберіть \"Поділитись\". Це не обов'язково, але ваш номер допоможе волонтерам швидше з вами зв'язатись"
-  },
-  "user_category_request": {
-    "UA": "Оберіть категорію"
-  },
   "user_locality_request": {
     "UA": "Напишіть ваше місцезнаходження"
   },
   "user_locality_reply": {
     "UA": "Оберіть один варіант із запропонованих"
   },
-  "btn_option_user_role_seeker": {
-    "UA": "Мені необхідна допомога"
+
+  "seeker_category_request": {
+    "UA": "Оберіть категорію"
   },
-  "btn_option_user_role_volunteer": {
-    "UA": "Я волонтер"
+  "seeker_helps_empty": {
+    "UA": "Вибачте, але ми нікого не знайшли"
   },
-  "error_choose_option": {
-    "UA": "Будь ласка, оберіть одну з опцій"
-  },
-  "help_categories_reply": {
-    "UA": "Категорії"
-  },
-  "help_location_reply": {
-    "UA": "Локація"
-  },
-  "help_created_at_reply": {
-    "UA": "Дата створення"
-  },
-  "help_details_translation_reply": {
-    "UA": "Деталі"
-  },
-  "helps_empty_reply": {
-    "UA": "Вибачте, але ми нічого не знайшли"
-  },
-  "subscription_request_translation": {
+  "seeker_subscription_proposal": {
     "UA": "Пропонуємо підписатись, щоб не пропустити нові волонтерські оголошення"
   },
-  "subscription_button_translation": {
-    "UA": "Підписатись"
+  "seeker_subscription_create_success": {
+    "UA": "Підписку успішно створено, використовуйте /my_subscriptions щоб керувати Вашими підписками."
   },
-  "error_please_try_again": {
-    "UA": "Будь ласка, спробуйте ще раз"
+  "seeker_looking_for_volunteers": {
+    "UA": "Шукаємо волонтерів у Вашій області за вказаною категорією..."
   },
+  "seeker_subscription_already_exists": {
+    "UA": "У вас вже є підписка в цій локації і категорії, використовуйте /my_subscriptions щоб керувати Вашими підписками."
+  },
+  "seeker_subscription_update_header": {
+    "UA": "З'явився новий волонтер у вашій області за вказаною категорією"
+  },
+
+
   "volunteer_chosen_categories_header": {
-    "UA": "Ваші категорії"
+    "UA": "Обрані категорії"
   },
   "volunteer_chosen_categories_footer": {
     "UA": "Щоб продовжити натискайте"
@@ -57,18 +42,49 @@
     "UA": "Опишіть чим ви можете допомогти, обов'язково вкажіть ваші контакти"
   },
   "volunteer_summary_header": {
-    "UA": "❤️ Дякуємо за Вашу доброту, Ваша інформація:"
+    "UA": "❤️ Дякуємо за Вашу доброту, Ваша допомога:"
   },
   "volunteer_summary_footer": {
     "UA": "Використовуйте /my_help щоб керувати Вашими запитами."
   },
-  "next_button": {
+
+  "btn_option_role_seeker": {
+    "UA": "Мені необхідна допомога"
+  },
+  "btn_option_role_volunteer": {
+    "UA": "Я волонтер"
+  },
+  "btn_option_next": {
     "UA": "➡️ Далі"
   },
-  "delete_button": {
+  "btn_option_subscribe": {
+    "UA": "Підписатись"
+  },
+  "bdn_option_delete": {
     "UA": "Видалити"
   },
-  "help_delete_success": {
+
+  "delete_help_success": {
     "UA": "Допомогу успішно видалено"
+  },
+  "delete_subscription_success": {
+    "UA": "Підписку успішно видалено"
+  },
+
+  "error_choose_option": {
+    "UA": "Будь ласка, оберіть одну з опцій"
+  },
+  "error_please_try_again": {
+    "UA": "Будь ласка, спробуйте ще раз"
+  },
+  "error_no_subscriptions": {
+    "UA": "У вас немає створених підписок, використовуйте /start щоб знайти волонтерів"
+  },
+  "error_500": {
+    "UA": "Щось пішло не так, спробуйте ще раз пізніше або напишіть нам в підтримку"
+  },
+
+  "cmd_support": {
+    "UA": "Пишіть нам @jwl_s @rrommaaa"
   }
 }

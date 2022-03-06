@@ -26,7 +26,7 @@ func New(ctx context.Context, config *Config, l *zap.Logger, s *service.Service)
 		return nil, err
 	}
 
-	tr, err := NewTranslator()
+	tr, err := NewLocalizer()
 	if err != nil {
 		return nil, err
 	}
