@@ -351,7 +351,8 @@ from app_user as u
 where u.id = $1`
 
 	selectSubscriptionsByLocalityCategoriesSQL = `
-select s.id,
+select distinct on (s.creator_id)
+       s.id,
        s.creator_id,
        s.category_id,
        u.chat_id,
