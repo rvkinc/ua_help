@@ -46,13 +46,18 @@ func main() {
 		log.Fatalln("new postgres:", err)
 	}
 
+	err = st.MigrateUp()
+	if err != nil {
+		log.Fatalln("migrate storage:", err)
+	}
+
 	b, err := bot.New(ctx, cfg.BotConfig, lg, service.NewService(st))
 	if err != nil {
-		log.Fatalln("run bot", err)
+		log.Fatalln("run bot:", err)
 	}
 
 	err = b.Run()
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalln("run:", err)
 	}
 }
