@@ -12,6 +12,10 @@ import (
 	"github.com/rvkinc/uasocial/internal/service"
 )
 
+const (
+	maxSubscriptionsPerUser = 5
+)
+
 type seeker struct {
 	category   *service.CategoryTranslated
 	localities service.Localities
@@ -63,11 +67,29 @@ func (m *MessageHandler) handleCmdMySubscriptions(u *Update) error {
 	return nil
 }
 
-func (m *MessageHandler) handleSeekerUserRoleReply(chatID int64) error {
-	d := m.dialogs.get(chatID)
+func (m *MessageHandler) handleSeekerUserRoleReply(u *Update) error {
+	uid, err := u.userID()
+	if err != nil {
+		return err
+	}
+
+	count, err := m.Service.SubscriptionsCountByUser(u.ctx, uid)
+	if err != nil {
+		return err
+	}
+
+	if count >= maxSubscriptionsPerUser {
+		m.dialogs.delete(u.chatID())
+		msg := tg.NewMessage(u.chatID(), fmt.Sprintf(m.Localize.Translate(errorSubscriptionsLimitExceededTr, UALang), maxHelpsPerUser))
+		msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
+		_, err = m.Api.Send(msg)
+		return err
+	}
+
+	d := m.dialogs.get(u.chatID())
 	d.role = roleSeeker
 	d.seeker = new(seeker)
-	msg := tg.NewMessage(chatID, m.Localize.Translate(seekerCategoryRequestTr, UALang))
+	msg := tg.NewMessage(u.chatID(), m.Localize.Translate(seekerCategoryRequestTr, UALang))
 
 	keyboardButtons := make([][]tg.KeyboardButton, 0)
 
@@ -85,12 +107,12 @@ func (m *MessageHandler) handleSeekerUserRoleReply(chatID int64) error {
 		ResizeKeyboard:  true,
 	}
 
-	_, err := m.Api.Send(msg)
+	_, err = m.Api.Send(msg)
 	if err != nil {
 		return err
 	}
 
-	m.dialogs.get(chatID).next = m.handleUserCategoryReply
+	m.dialogs.get(u.chatID()).next = m.handleUserCategoryReply
 
 	return nil
 }
@@ -225,10 +247,9 @@ func (m *MessageHandler) handleSeekerSubscriptionBtnReply(u *Update) error {
 		return nil
 	}
 
-	v := u.ctx.Value(userIDCtxKey)
-	uid, ok := v.(uuid.UUID)
-	if !ok {
-		return errors.New("can't get user id")
+	uid, err := u.userID()
+	if err != nil {
+		return err
 	}
 
 	if err := m.Service.NewSubscription(u.ctx, service.CreateSubscription{
@@ -248,6 +269,6 @@ func (m *MessageHandler) handleSeekerSubscriptionBtnReply(u *Update) error {
 	m.dialogs.delete(u.chatID())
 	msg := tg.NewMessage(u.chatID(), m.Localize.Translate(seekerSubscriptionCreateSuccessTr, UALang))
 	msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
-	_, err := m.Api.Send(msg)
+	_, err = m.Api.Send(msg)
 	return err
 }

@@ -12,6 +12,10 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	maxHelpsPerUser = 2
+)
+
 type volunteer struct {
 	categories       []*category
 	categoryKeyboard []*categoryCheckbox
@@ -59,6 +63,53 @@ func (m *MessageHandler) handleCmdMyHelp(u *Update) error {
 		}
 	}
 
+	return nil
+}
+
+func (m *MessageHandler) handleVolunteerUserRoleReply(u *Update) error {
+	uid, err := u.userID()
+	if err != nil {
+		return err
+	}
+
+	count, err := m.Service.HelpsCountByUser(u.ctx, uid)
+	if err != nil {
+		return err
+	}
+
+	if count >= maxHelpsPerUser {
+		m.dialogs.delete(u.chatID())
+		msg := tg.NewMessage(u.chatID(), fmt.Sprintf(m.Localize.Translate(errorHelpsLimitExceededTr, UALang), maxHelpsPerUser))
+		msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
+		_, err = m.Api.Send(msg)
+		return err
+	}
+
+	d := m.dialogs.get(u.chatID())
+	d.role = roleVolunteer
+	d.volunteer = new(volunteer)
+	d.volunteer.categoryKeyboard = make([]*categoryCheckbox, 0, len(m.categories))
+	for _, cc := range m.categories {
+		d.volunteer.categoryKeyboard = append(d.volunteer.categoryKeyboard, &categoryCheckbox{
+			category: category{uid: cc.ID, text: cc.Name},
+			checked:  false,
+		})
+	}
+
+	msg := tg.NewMessage(u.chatID(), m.Localize.Translate(volunteerSelectCategoriesRequestTr, UALang))
+	msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
+		OneTimeKeyboard: false,
+		ResizeKeyboard:  true,
+		Selective:       true,
+		Keyboard:        d.volunteer.categoryKeyboardLayout(""),
+	}
+
+	_, err = m.Api.Send(msg)
+	if err != nil {
+		return err
+	}
+
+	m.dialogs.get(u.chatID()).next = m.handleVolunteerCategoryCheckboxReply
 	return nil
 }
 
@@ -179,13 +230,11 @@ func (m *MessageHandler) handleVolunteerDescriptionTextReply(u *Update) error {
 	b.WriteString(fmt.Sprintf("%s\n\n", d.volunteer.description))
 	b.WriteString(fmt.Sprintf("<i>%s</i>\n", m.Localize.Translate(volunteerSummaryFooterTr, UALang)))
 
-	v := u.ctx.Value(userIDCtxKey)
-	uid, ok := v.(uuid.UUID)
-	if !ok {
-		return fmt.Errorf("no user in context")
+	uid, err := u.userID()
+	if err != nil {
+		return err
 	}
 
-	// todo: add limit
 	go func() {
 		cids := make([]uuid.UUID, 0, len(d.volunteer.categories))
 		for _, cs := range d.volunteer.categories {
@@ -207,7 +256,7 @@ func (m *MessageHandler) handleVolunteerDescriptionTextReply(u *Update) error {
 	m.dialogs.delete(u.chatID())
 	msg := tg.NewMessage(u.chatID(), b.String())
 	msg.ParseMode = "HTML"
-	_, err := m.Api.Send(msg)
+	_, err = m.Api.Send(msg)
 	return err
 }
 
