@@ -98,9 +98,9 @@ func (m *MessageHandler) handleSeekerUserRoleReply(chatID int64) error {
 func (m *MessageHandler) handleUserCategoryReply(u *Update) error {
 	d := m.dialogs.get(u.chatID())
 
-	for _, c := range m.categories {
-		if c.Name == u.Message.Text {
-			d.seeker.category = &c
+	for i := range m.categories {
+		if m.categories[i].Name == u.Message.Text {
+			d.seeker.category = &m.categories[i]
 		}
 	}
 
