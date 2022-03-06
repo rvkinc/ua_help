@@ -48,7 +48,7 @@ func (m *MessageHandler) handleCmdMySubscriptions(u *Update) error {
 
 		var (
 			deleteQueryString        = fmt.Sprintf("%s|%s", cmdMySubscriptions, s.ID.String())
-			subscriptionsQueryString = fmt.Sprintf("%s|%s", helpsBySubscriptionCQ, s.ID.String())
+			subscriptionsQueryString = fmt.Sprintf("%s|%s", cqHelpsBySubscription, s.ID.String())
 		)
 
 		msg := tg.NewMessage(u.chatID(), b.String())

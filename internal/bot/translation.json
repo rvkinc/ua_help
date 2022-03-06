@@ -95,6 +95,9 @@
   "error_subscriptions_limit_exceeded": {
     "UA": "Максимальна кількість дозволених підписок - %d, використовуйте /my_subscriptions, щоб керувати вашими підписками"
   },
+  "error_subscription_does_not_exist": {
+    "UA": "Ця підписка вже видалена"
+  },
 
   "cmd_support": {
     "UA": "Маєте питання, побажання чи зіткнулись з певними труднощами? Зв’яжіться з нами @jwl_s @rrommaaa"

@@ -29,6 +29,7 @@ type Interface interface {
 
 	UpsertUser(context.Context, *User) (*User, error)
 	SelectLocalityRegions(context.Context, string) ([]*LocalityRegion, error)
+	SelectCategories(context.Context) ([]*Category, error)
 
 	InsertHelp(context.Context, *HelpInsert) (uuid.UUID, error)
 	SelectHelpByID(context.Context, uuid.UUID) (*Help, error)
@@ -46,8 +47,8 @@ type Interface interface {
 	SelectSubscriptionsCountByUser(context.Context, uuid.UUID) (int, error)
 	DeleteSubscription(context.Context, uuid.UUID) error
 
-	SelectCategories(context.Context) ([]*Category, error)
 	SelectActivityStats(context.Context) (*ActivityStats, error)
+	SelectSubscriptionExists(context.Context, uuid.UUID) (bool, error)
 }
 
 type Postgres struct {
@@ -400,6 +401,8 @@ from subscription as s
     join app_user u on h.creator_id = u.id
 where s.id = $1 and h.deleted_at is null
 group by h.id, u.language, l.public_name_ua, l.public_name_ru, l.public_name_en, loc_public_name_ua, loc_public_name_ru, loc_public_name_en`
+
+	selectSubscriptionExistsSQL = `select exists(select 1 from subscription where id = $1)`
 )
 
 func (p *Postgres) UpsertUser(ctx context.Context, user *User) (*User, error) {
@@ -516,4 +519,10 @@ func (p *Postgres) SelectHelpsCountByUser(ctx context.Context, uid uuid.UUID) (i
 func (p *Postgres) SelectHelpsBySubscription(ctx context.Context, sid uuid.UUID) ([]*Help, error) {
 	var helps = make([]*Help, 0)
 	return helps, ErrFromCode(p.driver.SelectContext(ctx, &helps, selectHelpsBySubscriptionSQL, sid))
+}
+
+func (p *Postgres) SelectSubscriptionExists(ctx context.Context, sid uuid.UUID) (bool, error) {
+	var exists bool
+	err := p.driver.GetContext(ctx, &exists, selectSubscriptionExistsSQL, sid)
+	return exists, ErrFromCode(err)
 }

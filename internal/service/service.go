@@ -462,3 +462,7 @@ func (s *Service) HelpsBySubscription(ctx context.Context, sid uuid.UUID) ([]Use
 	}
 	return helps, nil
 }
+
+func (s *Service) SubscriptionExists(ctx context.Context, sid uuid.UUID) (bool, error) {
+	return s.storage.SelectSubscriptionExists(ctx, sid)
+}

@@ -46,6 +46,7 @@ const (
 	error500Tr                        = "error_500"
 	errorHelpsLimitExceededTr         = "error_helps_limit_exceeded"
 	errorSubscriptionsLimitExceededTr = "error_subscriptions_limit_exceeded"
+	errorSubscriptionDoesNotExistTr   = "error_subscription_does_not_exist"
 
 	cmdSupportTr                    = "cmd_support"
 	cmdStartActivityHeaderTr        = "cmd_start_activity_header"
