@@ -74,7 +74,7 @@ func (m *MessageHandler) handleCmdMyHelp(u *Update) error {
 }
 
 func (m *MessageHandler) handleVolunteerUserRoleReply(u *Update) error {
-	uid, err := u.userID()
+	uid, err := u.userUUID()
 	if err != nil {
 		return err
 	}
@@ -84,7 +84,7 @@ func (m *MessageHandler) handleVolunteerUserRoleReply(u *Update) error {
 		return err
 	}
 
-	if count >= maxHelpsPerUser {
+	if count >= maxHelpsPerUser && u.tgUser().ID != adminTgID {
 		m.dialogs.delete(u.chatID())
 		msg := tg.NewMessage(u.chatID(), fmt.Sprintf(m.Localize.Translate(errorHelpsLimitExceededTr, UALang), maxHelpsPerUser))
 		msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
@@ -237,7 +237,7 @@ func (m *MessageHandler) handleVolunteerDescriptionTextReply(u *Update) error {
 	b.WriteString(fmt.Sprintf("%s\n\n", d.volunteer.description))
 	b.WriteString(fmt.Sprintf("%s", m.Localize.Translate(navigationHintTr, UALang)))
 
-	uid, err := u.userID()
+	uid, err := u.userUUID()
 	if err != nil {
 		return err
 	}

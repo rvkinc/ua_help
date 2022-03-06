@@ -33,9 +33,9 @@ type UserUpsertMiddleware struct {
 
 func (m *UserUpsertMiddleware) Handle(b *tg.BotAPI, u *Update, next HandlerFunc) {
 	user, err := m.Service.NewUser(m.ctx, &service.CreateUser{
-		TgID:   u.tgUserID().ID,
+		TgID:   u.tgUser().ID,
 		ChatID: u.chatID(),
-		Name:   u.tgUserID().UserName,
+		Name:   u.tgUser().UserName,
 	})
 
 	if err != nil {

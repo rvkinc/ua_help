@@ -13,7 +13,7 @@ type Update struct {
 	ctx context.Context
 }
 
-func (u *Update) tgUserID() *tg.User {
+func (u *Update) tgUser() *tg.User {
 	if u.CallbackQuery != nil {
 		return u.CallbackQuery.From
 	}
@@ -27,7 +27,7 @@ func (u *Update) chatID() int64 {
 	return u.Message.Chat.ID
 }
 
-func (u *Update) userID() (uuid.UUID, error) {
+func (u *Update) userUUID() (uuid.UUID, error) {
 	v := u.ctx.Value(userIDCtxKey)
 	uid, ok := v.(uuid.UUID)
 	if !ok {

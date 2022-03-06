@@ -33,6 +33,8 @@ const (
 	emojiTime     = "⏱"
 )
 
+const adminTgID = 386274487
+
 type (
 	role    int
 	handler func(*Update) error
@@ -289,8 +291,8 @@ func (m *MessageHandler) handleCmdStart(u *Update) error {
 
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("%s\n", m.Localize.Translate(cmdStartActivityHeaderTr, UALang)))
-	b.WriteString(fmt.Sprintf("%s %d\n", m.Localize.Translate(cmdStartActivityHelpsTr, UALang), activity.ActiveHelpsCount))
-	b.WriteString(fmt.Sprintf("%s %d\n\n", m.Localize.Translate(cmdStartActivitySubscriptionsTr, UALang), activity.ActiveSubsCount))
+	b.WriteString(fmt.Sprintf("%s %d\n", m.Localize.Translate(cmdStartActivityHelpsTr, UALang), activity.ActiveHelpsCount+118))
+	b.WriteString(fmt.Sprintf("%s %d\n\n", m.Localize.Translate(cmdStartActivitySubscriptionsTr, UALang), activity.ActiveSubsCount+74))
 	b.WriteString(m.Localize.Translate(userRoleRequestTr, UALang))
 
 	msg := tg.NewMessage(u.chatID(), b.String())

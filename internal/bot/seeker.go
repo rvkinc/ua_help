@@ -80,7 +80,7 @@ func (m *MessageHandler) handleCmdMySubscriptions(u *Update) error {
 }
 
 func (m *MessageHandler) handleSeekerUserRoleReply(u *Update) error {
-	uid, err := u.userID()
+	uid, err := u.userUUID()
 	if err != nil {
 		return err
 	}
@@ -92,7 +92,7 @@ func (m *MessageHandler) handleSeekerUserRoleReply(u *Update) error {
 
 	if count >= maxSubscriptionsPerUser {
 		m.dialogs.delete(u.chatID())
-		msg := tg.NewMessage(u.chatID(), fmt.Sprintf(m.Localize.Translate(errorSubscriptionsLimitExceededTr, UALang), maxHelpsPerUser))
+		msg := tg.NewMessage(u.chatID(), fmt.Sprintf(m.Localize.Translate(errorSubscriptionsLimitExceededTr, UALang), maxSubscriptionsPerUser))
 		msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
 		_, err = m.Api.Send(msg)
 		return err
@@ -156,7 +156,7 @@ func (m *MessageHandler) handleUserCategoryReply(u *Update) error {
 }
 
 func (m *MessageHandler) handleSeekerLocalityTextReply(u *Update) error {
-	localities, err := m.Service.AutocompleteLocality(u.ctx, u.Message.Text)
+	localities, err := m.Service.AutocompleteLocality(u.ctx, strings.Title(strings.ToLower(u.Message.Text)))
 	if err != nil {
 		return err
 	}
@@ -259,7 +259,7 @@ func (m *MessageHandler) handleSeekerSubscriptionBtnReply(u *Update) error {
 		return nil
 	}
 
-	uid, err := u.userID()
+	uid, err := u.userUUID()
 	if err != nil {
 		return err
 	}
