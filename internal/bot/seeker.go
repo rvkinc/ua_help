@@ -46,14 +46,24 @@ func (m *MessageHandler) handleCmdMySubscriptions(u *Update) error {
 		b.WriteString(fmt.Sprintf("%s %s\n", emojiLocation, s.Locality))
 		b.WriteString(fmt.Sprintf("%s %s\n", emojiItem, s.Category))
 
-		queryString := fmt.Sprintf("%s|%s", cmdMySubscriptions, s.ID.String())
+		var (
+			deleteQueryString        = fmt.Sprintf("%s|%s", cmdMySubscriptions, s.ID.String())
+			subscriptionsQueryString = fmt.Sprintf("%s|%s", helpsBySubscriptionCQ, s.ID.String())
+		)
+
 		msg := tg.NewMessage(u.chatID(), b.String())
 		msg.ParseMode = "HTML"
 		msg.ReplyMarkup = tg.InlineKeyboardMarkup{InlineKeyboard: [][]tg.InlineKeyboardButton{
 			{
 				{
 					Text:         m.Localize.Translate(btnOptionDeleteTr, UALang),
-					CallbackData: &queryString,
+					CallbackData: &deleteQueryString,
+				},
+			},
+			{
+				{
+					Text:         m.Localize.Translate(btnOptionHelpsBySubscription, UALang),
+					CallbackData: &subscriptionsQueryString,
 				},
 			},
 		}}

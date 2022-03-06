@@ -22,6 +22,8 @@ const (
 	cmdMyHelp          = "my_help"
 	cmdMySubscriptions = "my_subscriptions"
 	cmdSupport         = "support"
+
+	helpsBySubscriptionCQ = "hepls_by_subscription"
 )
 
 const (
@@ -215,6 +217,32 @@ func (m *MessageHandler) handleCallbackQuery(u *Update) error {
 		msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
 		_, err = m.Api.Send(msg)
 		return err
+	case helpsBySubscriptionCQ:
+		sid, err := uuid.Parse(qslice[1])
+		if err != nil {
+			return fmt.Errorf("parse subscription id: %w", err)
+		}
+
+		helps, err := m.Service.HelpsBySubscription(u.ctx, sid)
+		if err != nil {
+			return err
+		}
+
+		for _, help := range helps {
+			var b strings.Builder
+			b.WriteString(fmt.Sprintf("%s %s\n", emojiLocation, help.Locality))
+			b.WriteString(fmt.Sprintf("%s %s\n", emojiTime, m.Localize.FormatDateTime(help.CreatedAt, UALang)))
+			for _, c := range help.Categories {
+				b.WriteString(fmt.Sprintf("%s %s\n", emojiItem, c))
+			}
+			b.WriteString(fmt.Sprintf("%s\n\n", help.Description))
+			msg := tg.NewMessage(u.chatID(), b.String())
+			msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
+			_, err = m.Api.Send(msg)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil

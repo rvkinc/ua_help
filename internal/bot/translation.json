@@ -63,8 +63,11 @@
   "btn_option_subscribe": {
     "UA": "Підписатись"
   },
-  "bdn_option_delete": {
+  "btn_option_delete": {
     "UA": "Видалити"
+  },
+  "btn_optin_helps_by_subscription": {
+    "UA": "Переглянути оголошення"
   },
 
   "delete_help_success": {
