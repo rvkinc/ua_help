@@ -1,6 +1,7 @@
 
 .idea/
 config.yml
+bin/
 
 # Binaries for programs and plugins
 *.exe

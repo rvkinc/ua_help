@@ -43,6 +43,7 @@ const (
 	errorChooseOptionTr               = "error_choose_option"
 	errorPleaseTryAgainTr             = "error_please_try_again"
 	errorNoSubscriptionsTr            = "error_no_subscriptions"
+	errorNoHelpsTr                    = "error_no_helps"
 	error500Tr                        = "error_500"
 	errorHelpsLimitExceededTr         = "error_helps_limit_exceeded"
 	errorSubscriptionsLimitExceededTr = "error_subscriptions_limit_exceeded"

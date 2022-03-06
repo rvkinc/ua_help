@@ -1,0 +1,11 @@
+[Unit]
+Description=@uasocial_bot
+
+[Service]
+User=ec2-user
+WorkingDirectory=/home/ec2-user
+ExecStart=/home/ec2-user/uasocial
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

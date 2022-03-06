@@ -35,7 +35,9 @@ func (m *MessageHandler) handleCmdMySubscriptions(u *Update) error {
 	}
 
 	if len(subs) == 0 {
-		_, err := m.Api.Send(tg.NewMessage(u.chatID(), m.Localize.Translate(errorNoSubscriptionsTr, UALang)))
+		msg := tg.NewMessage(u.chatID(), fmt.Sprintf("%s\n\n%s", m.Localize.Translate(errorNoSubscriptionsTr, UALang), m.Localize.Translate(navigationHintTr, UALang)))
+		msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
+		_, err = m.Api.Send(msg)
 		return err
 	}
 

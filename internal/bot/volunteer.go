@@ -37,6 +37,13 @@ func (m *MessageHandler) handleCmdMyHelp(u *Update) error {
 		return fmt.Errorf("get user helps: %w", err)
 	}
 
+	if len(helps) == 0 {
+		msg := tg.NewMessage(u.chatID(), fmt.Sprintf("%s\n\n%s", m.Localize.Translate(errorNoHelpsTr, UALang), m.Localize.Translate(navigationHintTr, UALang)))
+		msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
+		_, err = m.Api.Send(msg)
+		return err
+	}
+
 	for _, h := range helps {
 		var b strings.Builder
 		b.WriteString(fmt.Sprintf("%s %s\n", emojiLocation, h.Locality))
