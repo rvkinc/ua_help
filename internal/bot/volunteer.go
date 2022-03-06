@@ -63,7 +63,7 @@ func (m *MessageHandler) handleCmdMyHelp(u *Update) error {
 }
 
 func (m *MessageHandler) handleVolunteerCategoryCheckboxReply(u *Update) error {
-	d := m.state[u.chatID()]
+	d := m.dialogs.get(u.chatID())
 	nextBtnText := m.Localize.Translate(btnOptionNextTr, UALang)
 
 	if u.Message.Text == nextBtnText && len(d.volunteer.categories) > 0 {
@@ -143,14 +143,14 @@ func (m *MessageHandler) handleVolunteerLocalityTextReply(u *Update) error {
 		return err
 	}
 
-	m.state[u.chatID()].volunteer.localities = localities
-	m.state[u.chatID()].next = m.handleVolunteerLocalityButtonReply
+	m.dialogs.get(u.chatID()).volunteer.localities = localities
+	m.dialogs.get(u.chatID()).next = m.handleVolunteerLocalityButtonReply
 
 	return nil
 }
 
 func (m *MessageHandler) handleVolunteerLocalityButtonReply(u *Update) error {
-	d := m.state[u.chatID()]
+	d := m.dialogs.get(u.chatID())
 	for _, l := range d.volunteer.localities {
 		if fmt.Sprintf("%s, %s", l.Name, l.RegionName) == u.Message.Text {
 			d.volunteer.locality = l
@@ -166,7 +166,7 @@ func (m *MessageHandler) handleVolunteerLocalityButtonReply(u *Update) error {
 }
 
 func (m *MessageHandler) handleVolunteerDescriptionTextReply(u *Update) error {
-	d := m.state[u.chatID()]
+	d := m.dialogs.get(u.chatID())
 	d.volunteer.description = u.Message.Text
 
 	var b strings.Builder
@@ -204,7 +204,7 @@ func (m *MessageHandler) handleVolunteerDescriptionTextReply(u *Update) error {
 		}
 	}()
 
-	delete(m.state, u.chatID())
+	m.dialogs.delete(u.chatID())
 	msg := tg.NewMessage(u.chatID(), b.String())
 	msg.ParseMode = "HTML"
 	_, err := m.Api.Send(msg)

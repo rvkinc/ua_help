@@ -3,8 +3,9 @@ package bot
 import (
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
 	"strings"
+
+	"go.uber.org/zap"
 
 	tg "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/google/uuid"
@@ -63,7 +64,7 @@ func (m *MessageHandler) handleCmdMySubscriptions(u *Update) error {
 }
 
 func (m *MessageHandler) handleSeekerUserRoleReply(chatID int64) error {
-	d := m.state[chatID]
+	d := m.dialogs.get(chatID)
 	d.role = roleSeeker
 	d.seeker = new(seeker)
 	msg := tg.NewMessage(chatID, m.Localize.Translate(seekerCategoryRequestTr, UALang))
@@ -93,13 +94,13 @@ func (m *MessageHandler) handleSeekerUserRoleReply(chatID int64) error {
 		return err
 	}
 
-	m.state[chatID].next = m.handleUserCategoryReply
+	m.dialogs.get(chatID).next = m.handleUserCategoryReply
 
 	return nil
 }
 
 func (m *MessageHandler) handleUserCategoryReply(u *Update) error {
-	d := m.state[u.chatID()]
+	d := m.dialogs.get(u.chatID())
 
 	for _, c := range m.categories {
 		if c.Name == u.Message.Text {
@@ -119,7 +120,7 @@ func (m *MessageHandler) handleUserCategoryReply(u *Update) error {
 		return err
 	}
 
-	m.state[u.chatID()].next = m.handleSeekerLocalityTextReply
+	m.dialogs.get(u.chatID()).next = m.handleSeekerLocalityTextReply
 
 	return nil
 }
@@ -141,15 +142,11 @@ func (m *MessageHandler) handleSeekerLocalityTextReply(u *Update) error {
 
 	for _, locality := range localities {
 		fullLocality := fmt.Sprintf("%s, %s", locality.Name, locality.RegionName)
-		keyboardButtons = append(keyboardButtons, []tg.KeyboardButton{
-			{
-				Text: fullLocality,
-			},
-		})
+		keyboardButtons = append(keyboardButtons, []tg.KeyboardButton{{Text: fullLocality}})
 	}
 
-	m.state[u.chatID()].seeker.localities = localities
-	m.state[u.chatID()].next = m.handleSeekerLocalityButtonReply
+	m.dialogs.get(u.chatID()).seeker.localities = localities
+	m.dialogs.get(u.chatID()).next = m.handleSeekerLocalityButtonReply
 
 	msg := tg.NewMessage(u.chatID(), m.Localize.Translate(userLocalityReplyTr, UALang))
 	msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
@@ -163,9 +160,9 @@ func (m *MessageHandler) handleSeekerLocalityTextReply(u *Update) error {
 }
 
 func (m *MessageHandler) handleSeekerLocalityButtonReply(u *Update) error {
-	d := m.state[u.chatID()]
+	d := m.dialogs.get(u.chatID())
 
-	for _, l := range m.state[u.chatID()].seeker.localities {
+	for _, l := range m.dialogs.get(u.chatID()).seeker.localities {
 		if fmt.Sprintf("%s, %s", l.Name, l.RegionName) == u.Message.Text {
 			d.seeker.locality = &l
 			break
@@ -240,8 +237,8 @@ func (m *MessageHandler) handleSeekerSubscriptionBtnReply(u *Update) error {
 
 	if err := m.Service.NewSubscription(u.ctx, service.CreateSubscription{
 		CreatorID:  uid,
-		CategoryID: m.state[u.chatID()].seeker.category.ID,
-		LocalityID: m.state[u.chatID()].seeker.locality.ID,
+		CategoryID: m.dialogs.get(u.chatID()).seeker.category.ID,
+		LocalityID: m.dialogs.get(u.chatID()).seeker.locality.ID,
 	}); err != nil {
 		if errors.Is(err, service.ErrAlreadyExists) {
 			msg := tg.NewMessage(u.chatID(), fmt.Sprintf("%s\n", m.Localize.Translate(seekerSubscriptionAlreadyExistsTr, UALang)))
@@ -252,7 +249,7 @@ func (m *MessageHandler) handleSeekerSubscriptionBtnReply(u *Update) error {
 		return err
 	}
 
-	delete(m.state, u.chatID())
+	m.dialogs.delete(u.chatID())
 	msg := tg.NewMessage(u.chatID(), m.Localize.Translate(seekerSubscriptionCreateSuccessTr, UALang))
 	msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
 	_, err := m.Api.Send(msg)
