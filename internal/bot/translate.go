@@ -28,6 +28,7 @@ const (
 	volunteerEnterDescriptionRequestTr = "volunteer_enter_description_request"
 	volunteerSummaryHeaderTr           = "volunteer_summary_header"
 	volunteerSummaryFooterTr           = "volunteer_summary_footer"
+	volunteerSelectCategoriesRequestTr = "volunteer_select_categories_request"
 
 	btnOptionRoleSeekerTr    = "btn_option_role_seeker"
 	btnOptionUserVolunteerTr = "btn_option_role_volunteer"
