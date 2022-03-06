@@ -50,6 +50,8 @@ const (
 	cmdStartActivityHeaderTr        = "cmd_start_activity_header"
 	cmdStartActivityHelpsTr         = "cmd_start_activity_helps"
 	cmdStartActivitySubscriptionsTr = "cmd_start_activity_subscriptions"
+
+	navigationHintTr = "navigation_hint"
 )
 
 const (

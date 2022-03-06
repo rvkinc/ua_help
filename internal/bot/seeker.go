@@ -267,7 +267,7 @@ func (m *MessageHandler) handleSeekerSubscriptionBtnReply(u *Update) error {
 	}
 
 	m.dialogs.delete(u.chatID())
-	msg := tg.NewMessage(u.chatID(), m.Localize.Translate(seekerSubscriptionCreateSuccessTr, UALang))
+	msg := tg.NewMessage(u.chatID(), fmt.Sprintf("%s\n\n%s", m.Localize.Translate(seekerSubscriptionCreateSuccessTr, UALang), m.Localize.Translate(navigationHintTr, UALang)))
 	msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
 	_, err = m.Api.Send(msg)
 	return err
