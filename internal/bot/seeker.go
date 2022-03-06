@@ -73,11 +73,7 @@ func (m *MessageHandler) handleSeekerUserRoleReply(chatID int64) error {
 
 	for _, category := range m.categories {
 		if len(keyboardButtons) == 0 || len(keyboardButtons[len(keyboardButtons)-1]) == 2 {
-			keyboardButtons = append(keyboardButtons, []tg.KeyboardButton{
-				{
-					Text: category.Name,
-				},
-			})
+			keyboardButtons = append(keyboardButtons, []tg.KeyboardButton{{Text: category.Name}})
 			continue
 		}
 		keyboardButtons[len(keyboardButtons)-1] = append(keyboardButtons[len(keyboardButtons)-1], tg.KeyboardButton{Text: category.Name})
