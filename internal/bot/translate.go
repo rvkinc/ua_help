@@ -38,10 +38,12 @@ const (
 	deleteHelpSuccessTr         = "delete_help_success"
 	deleteSubscriptionSuccessTr = "delete_subscription_success"
 
-	errorChooseOptionTr    = "error_choose_option"
-	errorPleaseTryAgainTr  = "error_please_try_again"
-	errorNoSubscriptionsTr = "error_no_subscriptions"
-	error500Tr             = "error_500"
+	errorChooseOptionTr               = "error_choose_option"
+	errorPleaseTryAgainTr             = "error_please_try_again"
+	errorNoSubscriptionsTr            = "error_no_subscriptions"
+	error500Tr                        = "error_500"
+	errorHelpsLimitExceededTr         = "error_helps_limit_exceeded"
+	errorSubscriptionsLimitExceededTr = "error_subscriptions_limit_exceeded"
 
 	cmdSupportTr = "cmd_support"
 )

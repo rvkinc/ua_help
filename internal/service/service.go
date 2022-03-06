@@ -418,3 +418,11 @@ func (s *Service) HelpsByCategoryLocation(ctx context.Context, location int, cat
 	}
 	return helps, nil
 }
+
+func (s *Service) SubscriptionsCountByUser(ctx context.Context, user_id uuid.UUID) (int, error) {
+	return s.storage.SelectSubscriptionsCountByUser(ctx, user_id)
+}
+
+func (s *Service) HelpsCountByUser(ctx context.Context, user_id uuid.UUID) (int, error) {
+	return s.storage.SelectHelpsCountByUser(ctx, user_id)
+}

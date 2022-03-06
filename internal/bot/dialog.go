@@ -243,33 +243,9 @@ func (m *MessageHandler) handleCmdStart(u *Update) error {
 func (m *MessageHandler) handleUserRoleReply(u *Update) error {
 	switch u.Message.Text {
 	case m.Localize.Translate(btnOptionRoleSeekerTr, UALang):
-		return m.handleSeekerUserRoleReply(u.chatID())
+		return m.handleSeekerUserRoleReply(u)
 	case m.Localize.Translate(btnOptionUserVolunteerTr, UALang):
-		d := m.dialogs.get(u.chatID())
-		d.role = roleVolunteer
-		d.volunteer = new(volunteer)
-		d.volunteer.categoryKeyboard = make([]*categoryCheckbox, 0, len(m.categories))
-		for _, cc := range m.categories {
-			d.volunteer.categoryKeyboard = append(d.volunteer.categoryKeyboard, &categoryCheckbox{
-				category: category{uid: cc.ID, text: cc.Name},
-				checked:  false,
-			})
-		}
-
-		msg := tg.NewMessage(u.chatID(), m.Localize.Translate(userRoleRequestTr, UALang))
-		msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
-			OneTimeKeyboard: false,
-			ResizeKeyboard:  true,
-			Selective:       true,
-			Keyboard:        d.volunteer.categoryKeyboardLayout(""),
-		}
-
-		_, err := m.Api.Send(msg)
-		if err != nil {
-			return err
-		}
-
-		m.dialogs.get(u.chatID()).next = m.handleVolunteerCategoryCheckboxReply
+		return m.handleVolunteerUserRoleReply(u)
 	default:
 		_, err := m.Api.Send(tg.NewMessage(u.chatID(), m.Localize.Translate(errorChooseOptionTr, UALang)))
 		if err != nil {
