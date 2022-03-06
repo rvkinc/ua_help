@@ -256,7 +256,7 @@ func (m *MessageHandler) handleUserRoleReply(u *Update) error {
 			})
 		}
 
-		msg := tg.NewMessage(u.chatID(), m.Localize.Translate(userRoleRequestTr, UALang))
+		msg := tg.NewMessage(u.chatID(), m.Localize.Translate(volunteerSelectCategoriesRequestTr, UALang))
 		msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
 			OneTimeKeyboard: false,
 			ResizeKeyboard:  true,
