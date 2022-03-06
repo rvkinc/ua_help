@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/rvkinc/uasocial"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,6 +24,8 @@ type Config struct {
 }
 
 type Interface interface {
+	MigrateUp() error
+
 	UpsertUser(context.Context, *User) (*User, error)
 	SelectLocalityRegions(context.Context, string) ([]*LocalityRegion, error)
 
@@ -61,6 +65,20 @@ func NewPostgres(c *Config) (*Postgres, error) {
 		config: c,
 		driver: db,
 	}, nil
+}
+
+func (p *Postgres) MigrateUp() error {
+	m, err := uasocial.Migrate(p.driver.DB)
+	if err != nil {
+		return err
+	}
+
+	err = m.Up()
+	if errors.Is(err, migrate.ErrNoChange) {
+		return nil
+	}
+
+	return err
 }
 
 // Storage layer errors
