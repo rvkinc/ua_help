@@ -29,14 +29,16 @@ type Interface interface {
 
 	UpsertUser(context.Context, *User) (*User, error)
 	SelectLocalityRegions(context.Context, string) ([]*LocalityRegion, error)
+	SelectCategories(context.Context) ([]*Category, error)
 
 	InsertHelp(context.Context, *HelpInsert) (uuid.UUID, error)
 	SelectHelpByID(context.Context, uuid.UUID) (*Help, error)
 	SelectHelpsByUser(context.Context, uuid.UUID) ([]*Help, error)
 	SelectHelpsByLocalityCategory(context.Context, int, uuid.UUID) ([]*Help, error)
+	SelectHelpsBySubscription(ctx context.Context, sid uuid.UUID) ([]*Help, error)
+	SelectHelpsCountByUser(context.Context, uuid.UUID) (int, error)
 	DeleteHelp(ctx context.Context, uuid2 uuid.UUID) error
 	SelectExpiredHelps(context.Context, time.Time) ([]*Help, error)
-	SelectHelpsCountByUser(context.Context, uuid.UUID) (int, error)
 	KeepHelp(ctx context.Context, requestID uuid.UUID) error
 
 	InsertSubscription(context.Context, *SubscriptionInsert) error
@@ -45,8 +47,8 @@ type Interface interface {
 	SelectSubscriptionsCountByUser(context.Context, uuid.UUID) (int, error)
 	DeleteSubscription(context.Context, uuid.UUID) error
 
-	SelectCategories(context.Context) ([]*Category, error)
 	SelectActivityStats(context.Context) (*ActivityStats, error)
+	SelectSubscriptionExists(context.Context, uuid.UUID) (bool, error)
 }
 
 type Postgres struct {
@@ -276,7 +278,7 @@ from locality as l
     left join locality reg_l on (l.parent_id = reg_l.parent_id and
          (l.type = 'VILLAGE' or l.type = 'URBAN' or l.type = 'SETTLEMENT'))
     join help h on coalesce(reg_l.id, l.id) = h.locality_id
-    join category c on c.id = any(h.category_ids)
+    join category c on c.id = any(h.category_ids) and $2 = any(h.category_ids)
     join app_user u on h.creator_id = u.id
 where l.id = $1 and $2 = any(h.category_ids) and h.deleted_at is null
 group by h.id, u.language, l.public_name_ua, l.public_name_ru, l.public_name_en, loc_public_name_ua, loc_public_name_ru, loc_public_name_en`
@@ -376,6 +378,31 @@ where l.id = $1 and s.category_id = any($2::uuid[])`
 	selectSubscriptionsCountByUserSQL = `select count(*) from subscription where creator_id = $1`
 
 	selectHelpsCountByUserSQL = `select count(*) from help where creator_id = $1 and deleted_at is null`
+
+	selectHelpsBySubscriptionSQL = `
+select
+    h.id,
+    h.creator_id,
+	json_agg(json_build_object('name_ua', c.name_ua, 'name_ru', c.name_ru, 'name_en', c.name_en)) as categories,
+    coalesce(reg_l.public_name_ua, l.public_name_ua) as loc_public_name_ua,
+    coalesce(reg_l.public_name_ru, l.public_name_ru) as loc_public_name_ru,
+    coalesce(reg_l.public_name_en, l.public_name_en) as loc_public_name_en,
+    u.language,
+    h.description,
+    h.created_at,
+    h.updated_at,
+    h.deleted_at
+from subscription as s
+	join locality l on l.id = s.locality_id
+    left join locality reg_l on (l.parent_id = reg_l.parent_id and
+         (l.type = 'VILLAGE' or l.type = 'URBAN' or l.type = 'SETTLEMENT'))
+    join help h on coalesce(reg_l.id, l.id) = h.locality_id and s.category_id = any(h.category_ids)
+    join category c on c.id = any(h.category_ids)
+    join app_user u on h.creator_id = u.id
+where s.id = $1 and h.deleted_at is null
+group by h.id, u.language, l.public_name_ua, l.public_name_ru, l.public_name_en, loc_public_name_ua, loc_public_name_ru, loc_public_name_en`
+
+	selectSubscriptionExistsSQL = `select exists(select 1 from subscription where id = $1)`
 )
 
 func (p *Postgres) UpsertUser(ctx context.Context, user *User) (*User, error) {
@@ -487,4 +514,15 @@ func (p *Postgres) SelectHelpsCountByUser(ctx context.Context, uid uuid.UUID) (i
 	var count int
 	err := p.driver.GetContext(ctx, &count, selectHelpsCountByUserSQL, uid)
 	return count, ErrFromCode(err)
+}
+
+func (p *Postgres) SelectHelpsBySubscription(ctx context.Context, sid uuid.UUID) ([]*Help, error) {
+	var helps = make([]*Help, 0)
+	return helps, ErrFromCode(p.driver.SelectContext(ctx, &helps, selectHelpsBySubscriptionSQL, sid))
+}
+
+func (p *Postgres) SelectSubscriptionExists(ctx context.Context, sid uuid.UUID) (bool, error) {
+	var exists bool
+	err := p.driver.GetContext(ctx, &exists, selectSubscriptionExistsSQL, sid)
+	return exists, ErrFromCode(err)
 }

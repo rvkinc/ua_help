@@ -443,3 +443,26 @@ func (s *Service) SubscriptionsCountByUser(ctx context.Context, user_id uuid.UUI
 func (s *Service) HelpsCountByUser(ctx context.Context, user_id uuid.UUID) (int, error) {
 	return s.storage.SelectHelpsCountByUser(ctx, user_id)
 }
+
+func (s *Service) HelpsBySubscription(ctx context.Context, sid uuid.UUID) ([]UserHelp, error) {
+	hs, err := s.storage.SelectHelpsBySubscription(ctx, sid)
+	if err != nil {
+		return nil, err
+	}
+	helps := make([]UserHelp, 0, len(hs))
+	for _, help := range hs {
+		h := UserHelp{
+			ID:          help.ID,
+			CreatorID:   help.CreatorID,
+			Description: help.Description,
+			CreatedAt:   help.CreatedAt,
+		}
+		h.localize(help)
+		helps = append(helps, h)
+	}
+	return helps, nil
+}
+
+func (s *Service) SubscriptionExists(ctx context.Context, sid uuid.UUID) (bool, error) {
+	return s.storage.SelectSubscriptionExists(ctx, sid)
+}

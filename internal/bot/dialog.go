@@ -22,6 +22,8 @@ const (
 	cmdMyHelp          = "my_help"
 	cmdMySubscriptions = "my_subscriptions"
 	cmdSupport         = "support"
+
+	cqHelpsBySubscription = "hepls_by_subscription"
 )
 
 const (
@@ -202,12 +204,24 @@ func (m *MessageHandler) handleCallbackQuery(u *Update) error {
 		return err
 
 	case cmdMySubscriptions:
-		uid, err := uuid.Parse(qslice[1])
+		sid, err := uuid.Parse(qslice[1])
 		if err != nil {
 			return fmt.Errorf("parse uuid: %w", err)
 		}
 
-		err = m.Service.DeleteSubscription(u.ctx, uid)
+		ok, err := m.Service.SubscriptionExists(u.ctx, sid)
+		if err != nil {
+			return fmt.Errorf("check subscription exists: %w", err)
+		}
+
+		if !ok {
+			msg := tg.NewMessage(u.chatID(), fmt.Sprintf("%s.\n\n%s", m.Localize.Translate(errorSubscriptionDoesNotExistTr, UALang), m.Localize.Translate(navigationHintTr, UALang)))
+			msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
+			_, err = m.Api.Send(msg)
+			return err
+		}
+
+		err = m.Service.DeleteSubscription(u.ctx, sid)
 		if err != nil {
 			return fmt.Errorf("parse uuid: %w", err)
 		}
@@ -216,6 +230,52 @@ func (m *MessageHandler) handleCallbackQuery(u *Update) error {
 		msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
 		_, err = m.Api.Send(msg)
 		return err
+
+	case cqHelpsBySubscription:
+		sid, err := uuid.Parse(qslice[1])
+		if err != nil {
+			return fmt.Errorf("parse subscription id: %w", err)
+		}
+
+		ok, err := m.Service.SubscriptionExists(u.ctx, sid)
+		if err != nil {
+			return fmt.Errorf("check subscription exists: %w", err)
+		}
+
+		if !ok {
+			msg := tg.NewMessage(u.chatID(), fmt.Sprintf("%s.\n\n%s", m.Localize.Translate(errorSubscriptionDoesNotExistTr, UALang), m.Localize.Translate(navigationHintTr, UALang)))
+			msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
+			_, err = m.Api.Send(msg)
+			return err
+		}
+
+		helps, err := m.Service.HelpsBySubscription(u.ctx, sid)
+		if err != nil {
+			return err
+		}
+
+		if len(helps) == 0 {
+			msg := tg.NewMessage(u.chatID(), fmt.Sprintf("%s.\n\n%s", m.Localize.Translate(seekerHelpsEmptyTr, UALang), m.Localize.Translate(navigationHintTr, UALang)))
+			msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
+			_, err = m.Api.Send(msg)
+			return err
+		}
+
+		for _, help := range helps {
+			var b strings.Builder
+			b.WriteString(fmt.Sprintf("%s %s\n", emojiLocation, help.Locality))
+			b.WriteString(fmt.Sprintf("%s %s\n", emojiTime, m.Localize.FormatDateTime(help.CreatedAt, UALang)))
+			for _, c := range help.Categories {
+				b.WriteString(fmt.Sprintf("%s %s\n", emojiItem, c))
+			}
+			b.WriteString(fmt.Sprintf("%s\n\n", help.Description))
+			msg := tg.NewMessage(u.chatID(), b.String())
+			msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
+			_, err = m.Api.Send(msg)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil

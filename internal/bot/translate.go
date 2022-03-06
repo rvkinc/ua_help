@@ -30,11 +30,12 @@ const (
 	volunteerSummaryFooterTr           = "volunteer_summary_footer"
 	volunteerSelectCategoriesRequestTr = "volunteer_select_categories_request"
 
-	btnOptionRoleSeekerTr    = "btn_option_role_seeker"
-	btnOptionUserVolunteerTr = "btn_option_role_volunteer"
-	btnOptionNextTr          = "btn_option_next"
-	btnOptionSubscribeTr     = "btn_option_subscribe"
-	btnOptionDeleteTr        = "bdn_option_delete"
+	btnOptionRoleSeekerTr        = "btn_option_role_seeker"
+	btnOptionUserVolunteerTr     = "btn_option_role_volunteer"
+	btnOptionNextTr              = "btn_option_next"
+	btnOptionSubscribeTr         = "btn_option_subscribe"
+	btnOptionDeleteTr            = "btn_option_delete"
+	btnOptionHelpsBySubscription = "btn_optin_helps_by_subscription"
 
 	deleteHelpSuccessTr         = "delete_help_success"
 	deleteSubscriptionSuccessTr = "delete_subscription_success"
@@ -45,6 +46,7 @@ const (
 	error500Tr                        = "error_500"
 	errorHelpsLimitExceededTr         = "error_helps_limit_exceeded"
 	errorSubscriptionsLimitExceededTr = "error_subscriptions_limit_exceeded"
+	errorSubscriptionDoesNotExistTr   = "error_subscription_does_not_exist"
 
 	cmdSupportTr                    = "cmd_support"
 	cmdStartActivityHeaderTr        = "cmd_start_activity_header"

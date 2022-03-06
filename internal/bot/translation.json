@@ -63,8 +63,11 @@
   "btn_option_subscribe": {
     "UA": "Підписатись"
   },
-  "bdn_option_delete": {
+  "btn_option_delete": {
     "UA": "Видалити"
+  },
+  "btn_optin_helps_by_subscription": {
+    "UA": "Переглянути оголошення"
   },
 
   "delete_help_success": {
@@ -91,6 +94,9 @@
   },
   "error_subscriptions_limit_exceeded": {
     "UA": "Максимальна кількість дозволених підписок - %d, використовуйте /my_subscriptions, щоб керувати вашими підписками"
+  },
+  "error_subscription_does_not_exist": {
+    "UA": "Ця підписка вже видалена"
   },
 
   "cmd_support": {
