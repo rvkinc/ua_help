@@ -221,7 +221,18 @@ func (m *MessageHandler) handleCallbackQuery(u *Update) error {
 }
 
 func (m *MessageHandler) handleCmdStart(u *Update) error {
-	msg := tg.NewMessage(u.chatID(), m.Localize.Translate(userRoleRequestTr, UALang))
+	activity, err := m.Service.GetActivityStats(u.ctx)
+	if err != nil {
+		return err
+	}
+
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("%s\n", m.Localize.Translate(cmdStartActivityHeaderTr, UALang)))
+	b.WriteString(fmt.Sprintf("%s %d\n", m.Localize.Translate(cmdStartActivityHelpsTr, UALang), activity.ActiveHelpsCount))
+	b.WriteString(fmt.Sprintf("%s %d\n\n", m.Localize.Translate(cmdStartActivitySubscriptionsTr, UALang), activity.ActiveSubsCount))
+	b.WriteString(m.Localize.Translate(userRoleRequestTr, UALang))
+
+	msg := tg.NewMessage(u.chatID(), b.String())
 	msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
 		OneTimeKeyboard: false,
 		ResizeKeyboard:  true,
@@ -231,7 +242,7 @@ func (m *MessageHandler) handleCmdStart(u *Update) error {
 		},
 	}
 
-	_, err := m.Api.Send(msg)
+	_, err = m.Api.Send(msg)
 	if err != nil {
 		return err
 	}

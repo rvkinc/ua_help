@@ -43,6 +43,7 @@ type Interface interface {
 	DeleteSubscription(context.Context, uuid.UUID) error
 
 	SelectCategories(context.Context) ([]*Category, error)
+	SelectActivityStats(context.Context) (*ActivityStats, error)
 }
 
 type Postgres struct {
@@ -187,6 +188,11 @@ type (
 		NameUA string    `db:"name_ua"`
 		NameRU string    `db:"name_ru"`
 		NameEN string    `db:"name_en"`
+	}
+
+	ActivityStats struct {
+		ActiveHelpsCount int `db:"helps"`
+		ActiveSubsCount  int `db:"subs"`
 	}
 )
 
@@ -361,6 +367,8 @@ where l.id = $1 and s.category_id = any($2::uuid[])`
 	deleteSubscriptionSQL = `delete from subscription where id = $1`
 
 	selectCategoriesSQL = `select id, name_ua, name_en, name_ru from category`
+
+	selectActivityStatsSQL = `select ( select count(*) from help ) as helps, ( select count(*) from subscription ) as subs`
 )
 
 func (p *Postgres) UpsertUser(ctx context.Context, user *User) (*User, error) {
@@ -455,4 +463,9 @@ func (p *Postgres) SelectCategories(ctx context.Context) ([]*Category, error) {
 	var cs = make([]*Category, 0)
 	err := p.driver.SelectContext(ctx, &cs, selectCategoriesSQL)
 	return cs, ErrFromCode(err)
+}
+
+func (p *Postgres) SelectActivityStats(ctx context.Context) (*ActivityStats, error) {
+	var stats = new(ActivityStats)
+	return stats, ErrFromCode(p.driver.GetContext(ctx, stats, selectActivityStatsSQL))
 }

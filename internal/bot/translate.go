@@ -44,7 +44,10 @@ const (
 	errorNoSubscriptionsTr = "error_no_subscriptions"
 	error500Tr             = "error_500"
 
-	cmdSupportTr = "cmd_support"
+	cmdSupportTr                    = "cmd_support"
+	cmdStartActivityHeaderTr        = "cmd_start_activity_header"
+	cmdStartActivityHelpsTr         = "cmd_start_activity_helps"
+	cmdStartActivitySubscriptionsTr = "cmd_start_activity_subscriptions"
 )
 
 const (
