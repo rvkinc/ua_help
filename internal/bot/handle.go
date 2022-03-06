@@ -2,8 +2,10 @@ package bot
 
 import (
 	"context"
+	"fmt"
 
 	tg "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/google/uuid"
 )
 
 type Update struct {
@@ -11,7 +13,7 @@ type Update struct {
 	ctx context.Context
 }
 
-func (u *Update) userUUID() *tg.User {
+func (u *Update) tgUserID() *tg.User {
 	if u.CallbackQuery != nil {
 		return u.CallbackQuery.From
 	}
@@ -23,6 +25,15 @@ func (u *Update) chatID() int64 {
 		return u.CallbackQuery.Message.Chat.ID
 	}
 	return u.Message.Chat.ID
+}
+
+func (u *Update) userID() (uuid.UUID, error) {
+	v := u.ctx.Value(userIDCtxKey)
+	uid, ok := v.(uuid.UUID)
+	if !ok {
+		return uuid.UUID{}, fmt.Errorf("no user in context")
+	}
+	return uid, nil
 }
 
 type Handler interface {

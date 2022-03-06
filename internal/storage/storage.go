@@ -5,9 +5,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"time"
+
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/rvkinc/uasocial"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -43,6 +44,9 @@ type Interface interface {
 	DeleteSubscription(context.Context, uuid.UUID) error
 
 	SelectCategories(context.Context) ([]*Category, error)
+
+	SelectSubscriptionsCountByUser(context.Context, uuid.UUID) (int, error)
+	SelectHelpsCountByUser(context.Context, uuid.UUID) (int, error)
 }
 
 type Postgres struct {
@@ -361,6 +365,10 @@ where l.id = $1 and s.category_id = any($2::uuid[])`
 	deleteSubscriptionSQL = `delete from subscription where id = $1`
 
 	selectCategoriesSQL = `select id, name_ua, name_en, name_ru from category`
+
+	selectSubscriptionsCountByUserSQL = `select count(*) from subscription where creator_id = $1`
+
+	selectHelpsCountByUserSQL = `select count(*) from help where creator_id = $1 and deleted_at is null`
 )
 
 func (p *Postgres) UpsertUser(ctx context.Context, user *User) (*User, error) {
@@ -455,4 +463,16 @@ func (p *Postgres) SelectCategories(ctx context.Context) ([]*Category, error) {
 	var cs = make([]*Category, 0)
 	err := p.driver.SelectContext(ctx, &cs, selectCategoriesSQL)
 	return cs, ErrFromCode(err)
+}
+
+func (p *Postgres) SelectSubscriptionsCountByUser(ctx context.Context, uid uuid.UUID) (int, error) {
+	var count int
+	err := p.driver.GetContext(ctx, &count, selectSubscriptionsCountByUserSQL, uid)
+	return count, ErrFromCode(err)
+}
+
+func (p *Postgres) SelectHelpsCountByUser(ctx context.Context, uid uuid.UUID) (int, error) {
+	var count int
+	err := p.driver.GetContext(ctx, &count, selectHelpsCountByUserSQL, uid)
+	return count, ErrFromCode(err)
 }
