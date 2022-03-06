@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	tg "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/google/uuid"
@@ -43,13 +44,36 @@ type (
 	}
 )
 
+type dialogs struct {
+	mu    *sync.Mutex
+	state map[int64]*dialog
+}
+
+func (d *dialogs) set(dialog *dialog, chatID int64) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.state[chatID] = dialog
+}
+
+func (d *dialogs) get(chatID int64) *dialog {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.state[chatID]
+}
+
+func (d *dialogs) delete(chatID int64) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	delete(d.state, chatID)
+}
+
 type MessageHandler struct {
 	Api      *tg.BotAPI
 	L        *zap.Logger
 	Localize *Localizer
 	Service  *service.Service
 
-	state      map[int64]*dialog
+	dialogs    *dialogs
 	categories service.CategoriesTranslated
 }
 
@@ -59,7 +83,7 @@ func NewMessageHandler(ctx context.Context, api *tg.BotAPI, l *zap.Logger, s *se
 		L:        l,
 		Localize: tr,
 		Service:  s,
-		state:    make(map[int64]*dialog),
+		dialogs:  &dialogs{mu: &sync.Mutex{}, state: make(map[int64]*dialog)},
 	}
 
 	categories, err := s.GetCategories(ctx)
@@ -136,8 +160,8 @@ func (m *MessageHandler) Handle(_ *tg.BotAPI, u *Update) {
 		}
 	}
 
-	dialog, ok := m.state[u.chatID()]
-	if !ok {
+	dialog := m.dialogs.get(u.chatID())
+	if dialog == nil {
 		err := m.handleCmdStart(u)
 		if err != nil {
 			m.L.Error("handle user role request", zap.Error(err))
@@ -212,7 +236,7 @@ func (m *MessageHandler) handleCmdStart(u *Update) error {
 		return err
 	}
 
-	m.state[u.chatID()] = &dialog{next: m.handleUserRoleReply}
+	m.dialogs.set(&dialog{next: m.handleUserRoleReply}, u.chatID())
 	return nil
 }
 
@@ -221,7 +245,7 @@ func (m *MessageHandler) handleUserRoleReply(u *Update) error {
 	case m.Localize.Translate(btnOptionRoleSeekerTr, UALang):
 		return m.handleSeekerUserRoleReply(u.chatID())
 	case m.Localize.Translate(btnOptionUserVolunteerTr, UALang):
-		d := m.state[u.chatID()]
+		d := m.dialogs.get(u.chatID())
 		d.role = roleVolunteer
 		d.volunteer = new(volunteer)
 		d.volunteer.categoryKeyboard = make([]*categoryCheckbox, 0, len(m.categories))
@@ -245,7 +269,7 @@ func (m *MessageHandler) handleUserRoleReply(u *Update) error {
 			return err
 		}
 
-		m.state[u.chatID()].next = m.handleVolunteerCategoryCheckboxReply
+		m.dialogs.get(u.chatID()).next = m.handleVolunteerCategoryCheckboxReply
 	default:
 		_, err := m.Api.Send(tg.NewMessage(u.chatID(), m.Localize.Translate(errorChooseOptionTr, UALang)))
 		if err != nil {

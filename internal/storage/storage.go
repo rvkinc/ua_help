@@ -299,8 +299,8 @@ group by h.id, u.language, l.public_name_ua, l.public_name_ru, l.public_name_en`
 	keepHelpSQL = `update help set updated_at = $2 where id = $1`
 
 	insertSubscriptionSQL = `insert into subscription
-	    (id, creator_id, category_id, locality_id, created_at, deleted_at)
-	values ($1, $2, $3, $4, $5, null)`
+	    (id, creator_id, category_id, locality_id, created_at)
+	values ($1, $2, $3, $4, $5)`
 
 	selectSubscriptionsByUserSQL = `
 select s.id,
@@ -319,7 +319,7 @@ from app_user as u
     join subscription s on s.creator_id = u.id
     join category c on c.id = s.category_id
     join locality l on s.locality_id = l.id
-where u.id = $1 and s.deleted_at is null`
+where u.id = $1`
 
 	selectSubscriptionsByLocalityCategoriesSQL = `
 select s.id,
@@ -340,7 +340,7 @@ from app_user as u
          join locality l on s.locality_id = l.id
 where l.id = $1 and s.category_id = any($2::uuid[])`
 
-	deleteSubscriptionSQL = `update subscription set deleted_at = $2 where id = $1`
+	deleteSubscriptionSQL = `delete from subscription where id = $1`
 
 	selectCategoriesSQL = `select id, name_ua, name_en, name_ru from category`
 )
@@ -429,7 +429,7 @@ func (p *Postgres) SelectSubscriptionsByLocalityCategories(ctx context.Context, 
 }
 
 func (p *Postgres) DeleteSubscription(ctx context.Context, sid uuid.UUID) error {
-	_, err := p.driver.ExecContext(ctx, deleteSubscriptionSQL, sid, time.Now())
+	_, err := p.driver.ExecContext(ctx, deleteSubscriptionSQL, sid)
 	return ErrFromCode(err)
 }
 
