@@ -78,8 +78,10 @@ func (m *MessageHandler) handleSeekerUserRoleReply(u *Update) error {
 		return err
 	}
 
-	if count > maxSubscriptionsPerUser {
+	if count >= maxSubscriptionsPerUser {
+		m.dialogs.delete(u.chatID())
 		msg := tg.NewMessage(u.chatID(), fmt.Sprintf(m.Localize.Translate(errorSubscriptionsLimitExceededTr, UALang), maxHelpsPerUser))
+		msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
 		_, err = m.Api.Send(msg)
 		return err
 	}

@@ -36,17 +36,17 @@ type Interface interface {
 	SelectHelpsByLocalityCategory(context.Context, int, uuid.UUID) ([]*Help, error)
 	DeleteHelp(ctx context.Context, uuid2 uuid.UUID) error
 	SelectExpiredHelps(context.Context, time.Time) ([]*Help, error)
+	SelectHelpsCountByUser(context.Context, uuid.UUID) (int, error)
 	KeepHelp(ctx context.Context, requestID uuid.UUID) error
 
 	InsertSubscription(context.Context, *SubscriptionInsert) error
 	SelectSubscriptionsByUser(context.Context, uuid.UUID) ([]*SubscriptionValue, error)
 	SelectSubscriptionsByLocalityCategories(context.Context, int, []uuid.UUID) ([]*SubscriptionValue, error)
+	SelectSubscriptionsCountByUser(context.Context, uuid.UUID) (int, error)
 	DeleteSubscription(context.Context, uuid.UUID) error
 
 	SelectCategories(context.Context) ([]*Category, error)
-
-	SelectSubscriptionsCountByUser(context.Context, uuid.UUID) (int, error)
-	SelectHelpsCountByUser(context.Context, uuid.UUID) (int, error)
+	SelectActivityStats(context.Context) (*ActivityStats, error)
 }
 
 type Postgres struct {
@@ -191,6 +191,11 @@ type (
 		NameUA string    `db:"name_ua"`
 		NameRU string    `db:"name_ru"`
 		NameEN string    `db:"name_en"`
+	}
+
+	ActivityStats struct {
+		ActiveHelpsCount int `db:"helps"`
+		ActiveSubsCount  int `db:"subs"`
 	}
 )
 
@@ -366,6 +371,8 @@ where l.id = $1 and s.category_id = any($2::uuid[])`
 
 	selectCategoriesSQL = `select id, name_ua, name_en, name_ru from category`
 
+	selectActivityStatsSQL = `select ( select count(*) from help ) as helps, ( select count(*) from subscription ) as subs`
+
 	selectSubscriptionsCountByUserSQL = `select count(*) from subscription where creator_id = $1`
 
 	selectHelpsCountByUserSQL = `select count(*) from help where creator_id = $1 and deleted_at is null`
@@ -463,6 +470,11 @@ func (p *Postgres) SelectCategories(ctx context.Context) ([]*Category, error) {
 	var cs = make([]*Category, 0)
 	err := p.driver.SelectContext(ctx, &cs, selectCategoriesSQL)
 	return cs, ErrFromCode(err)
+}
+
+func (p *Postgres) SelectActivityStats(ctx context.Context) (*ActivityStats, error) {
+	var stats = new(ActivityStats)
+	return stats, ErrFromCode(p.driver.GetContext(ctx, stats, selectActivityStatsSQL))
 }
 
 func (p *Postgres) SelectSubscriptionsCountByUser(ctx context.Context, uid uuid.UUID) (int, error) {

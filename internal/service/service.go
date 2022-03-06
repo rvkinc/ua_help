@@ -89,6 +89,11 @@ type (
 	Categories []Category
 
 	CategoriesTranslated []CategoryTranslated
+
+	ActivityStats struct {
+		ActiveHelpsCount int
+		ActiveSubsCount  int
+	}
 )
 
 // Service is a service implementation.
@@ -417,6 +422,18 @@ func (s *Service) HelpsByCategoryLocation(ctx context.Context, location int, cat
 		helps = append(helps, h)
 	}
 	return helps, nil
+}
+
+func (s *Service) GetActivityStats(ctx context.Context) (*ActivityStats, error) {
+	stats, err := s.storage.SelectActivityStats(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ActivityStats{
+		ActiveHelpsCount: stats.ActiveHelpsCount,
+		ActiveSubsCount:  stats.ActiveSubsCount,
+	}, nil
 }
 
 func (s *Service) SubscriptionsCountByUser(ctx context.Context, user_id uuid.UUID) (int, error) {

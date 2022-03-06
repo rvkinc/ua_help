@@ -92,7 +92,17 @@
   "error_subscriptions_limit_exceeded": {
     "UA": "Максимальна кількість дозволених підписок %d, використовуйте /my_subscriptions, щоб керувати Вашими підписками"
   },
+
   "cmd_support": {
     "UA": "Пишіть нам @jwl_s @rrommaaa"
+  },
+  "cmd_start_activity_header": {
+    "UA": "Активність бота на даний момент:"
+  },
+  "cmd_start_activity_helps": {
+    "UA": "- кількість оголошень про допомогу:"
+  },
+  "cmd_start_activity_subscriptions": {
+    "UA": "- кількість підписок:"
   }
 }

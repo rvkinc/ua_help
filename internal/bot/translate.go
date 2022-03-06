@@ -46,7 +46,10 @@ const (
 	errorHelpsLimitExceededTr         = "error_helps_limit_exceeded"
 	errorSubscriptionsLimitExceededTr = "error_subscriptions_limit_exceeded"
 
-	cmdSupportTr = "cmd_support"
+	cmdSupportTr                    = "cmd_support"
+	cmdStartActivityHeaderTr        = "cmd_start_activity_header"
+	cmdStartActivityHelpsTr         = "cmd_start_activity_helps"
+	cmdStartActivitySubscriptionsTr = "cmd_start_activity_subscriptions"
 )
 
 const (

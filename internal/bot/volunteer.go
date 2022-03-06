@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	maxHelpsPerUser = 5
+	maxHelpsPerUser = 2
 )
 
 type volunteer struct {
@@ -77,8 +77,10 @@ func (m *MessageHandler) handleVolunteerUserRoleReply(u *Update) error {
 		return err
 	}
 
-	if count > maxHelpsPerUser {
+	if count >= maxHelpsPerUser {
+		m.dialogs.delete(u.chatID())
 		msg := tg.NewMessage(u.chatID(), fmt.Sprintf(m.Localize.Translate(errorHelpsLimitExceededTr, UALang), maxHelpsPerUser))
+		msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
 		_, err = m.Api.Send(msg)
 		return err
 	}
