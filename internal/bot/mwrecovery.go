@@ -14,6 +14,10 @@ type RecoverMiddleware struct {
 }
 
 func (m *RecoverMiddleware) Handle(b *tg.BotAPI, u *Update, next HandlerFunc) {
+	if u.Message == nil && u.CallbackQuery == nil {
+		return
+	}
+
 	defer func() {
 		err := recover()
 		if err != nil {
