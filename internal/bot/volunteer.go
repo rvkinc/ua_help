@@ -228,7 +228,7 @@ func (m *MessageHandler) handleVolunteerDescriptionTextReply(u *Update) error {
 		b.WriteString(fmt.Sprintf("%s %s\n", emojiItem, c.text))
 	}
 	b.WriteString(fmt.Sprintf("%s\n\n", d.volunteer.description))
-	b.WriteString(fmt.Sprintf("<i>%s</i>\n", m.Localize.Translate(volunteerSummaryFooterTr, UALang)))
+	b.WriteString(fmt.Sprintf("%s", m.Localize.Translate(navigationHintTr, UALang)))
 
 	uid, err := u.userID()
 	if err != nil {

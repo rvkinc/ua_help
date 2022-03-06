@@ -132,6 +132,7 @@ func (m *MessageHandler) Handle(_ *tg.BotAPI, u *Update) {
 	}
 
 	if u.Message != nil && u.Message.IsCommand() {
+		m.dialogs.delete(u.chatID())
 		switch u.Message.Command() {
 		case cmdStart:
 			err := m.handleCmdStart(u)
@@ -184,7 +185,7 @@ func (m *MessageHandler) handleCallbackQuery(u *Update) error {
 	}
 
 	switch qslice[0] {
-	case cmdMyHelp:
+	case cmdMyHelp: // delete help
 		uid, err := uuid.Parse(qslice[1])
 		if err != nil {
 			return fmt.Errorf("parse uuid: %w", err)
@@ -195,7 +196,7 @@ func (m *MessageHandler) handleCallbackQuery(u *Update) error {
 			return fmt.Errorf("parse uuid: %w", err)
 		}
 
-		msg := tg.NewMessage(u.chatID(), m.Localize.Translate(deleteHelpSuccessTr, UALang))
+		msg := tg.NewMessage(u.chatID(), fmt.Sprintf("%s.\n\n%s", m.Localize.Translate(deleteHelpSuccessTr, UALang), m.Localize.Translate(navigationHintTr, UALang)))
 		msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
 		_, err = m.Api.Send(msg)
 		return err
@@ -211,7 +212,7 @@ func (m *MessageHandler) handleCallbackQuery(u *Update) error {
 			return fmt.Errorf("parse uuid: %w", err)
 		}
 
-		msg := tg.NewMessage(u.chatID(), m.Localize.Translate(deleteSubscriptionSuccessTr, UALang))
+		msg := tg.NewMessage(u.chatID(), fmt.Sprintf("%s.\n\n%s", m.Localize.Translate(deleteSubscriptionSuccessTr, UALang), m.Localize.Translate(navigationHintTr, UALang)))
 		msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
 		_, err = m.Api.Send(msg)
 		return err
@@ -268,6 +269,8 @@ func (m *MessageHandler) handleUserRoleReply(u *Update) error {
 }
 
 func (m *MessageHandler) handleCmdSupport(u *Update) error {
-	_, err := m.Api.Send(tg.NewMessage(u.chatID(), m.Localize.Translate(cmdSupportTr, UALang)))
+	msg := tg.NewMessage(u.chatID(), fmt.Sprintf("%s\n\n%s", m.Localize.Translate(cmdSupportTr, UALang), m.Localize.Translate(navigationHintTr, UALang)))
+	msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
+	_, err := m.Api.Send(msg)
 	return err
 }
