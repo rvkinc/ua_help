@@ -113,10 +113,11 @@ func (m *MessageHandler) handleSeekerUserRoleReply(u *Update) error {
 		keyboardButtons[len(keyboardButtons)-1] = append(keyboardButtons[len(keyboardButtons)-1], tg.KeyboardButton{Text: category.Name})
 	}
 
+	keyboardButtons = append(keyboardButtons, []tg.KeyboardButton{{Text: m.Localize.Translate(btnOptionCancelTr, UALang)}})
+
 	msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
-		Keyboard:        keyboardButtons,
-		OneTimeKeyboard: true,
-		ResizeKeyboard:  true,
+		Keyboard:       keyboardButtons,
+		ResizeKeyboard: true,
 	}
 
 	_, err = m.Api.Send(msg)
@@ -124,12 +125,12 @@ func (m *MessageHandler) handleSeekerUserRoleReply(u *Update) error {
 		return err
 	}
 
-	m.dialogs.get(u.chatID()).next = m.handleUserCategoryReply
+	m.dialogs.get(u.chatID()).next = m.handleSeekerCategoryBtnReply
 
 	return nil
 }
 
-func (m *MessageHandler) handleUserCategoryReply(u *Update) error {
+func (m *MessageHandler) handleSeekerCategoryBtnReply(u *Update) error {
 	d := m.dialogs.get(u.chatID())
 
 	for i := range m.categories {
@@ -144,7 +145,13 @@ func (m *MessageHandler) handleUserCategoryReply(u *Update) error {
 	}
 
 	msg := tg.NewMessage(u.chatID(), m.Localize.Translate(userLocalityRequestTr, UALang))
-	msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
+	msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
+		Keyboard: [][]tg.KeyboardButton{{
+			{Text: m.Localize.Translate(btnOptionCancelTr, UALang)},
+		}},
+		ResizeKeyboard: true,
+	}
+
 	_, err := m.Api.Send(msg)
 	if err != nil {
 		return err
@@ -163,7 +170,6 @@ func (m *MessageHandler) handleSeekerLocalityTextReply(u *Update) error {
 
 	if len(localities) == 0 {
 		msg := tg.NewMessage(u.chatID(), m.Localize.Translate(errorPleaseTryAgainTr, UALang))
-		msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
 		_, err = m.Api.Send(msg)
 		return err
 	}
@@ -175,14 +181,15 @@ func (m *MessageHandler) handleSeekerLocalityTextReply(u *Update) error {
 		keyboardButtons = append(keyboardButtons, []tg.KeyboardButton{{Text: fullLocality}})
 	}
 
+	keyboardButtons = append(keyboardButtons, []tg.KeyboardButton{{Text: m.Localize.Translate(btnOptionCancelTr, UALang)}})
+
 	m.dialogs.get(u.chatID()).seeker.localities = localities
 	m.dialogs.get(u.chatID()).next = m.handleSeekerLocalityButtonReply
 
 	msg := tg.NewMessage(u.chatID(), m.Localize.Translate(userLocalityReplyTr, UALang))
 	msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
-		OneTimeKeyboard: true,
-		Keyboard:        keyboardButtons,
-		ResizeKeyboard:  true,
+		Keyboard:       keyboardButtons,
+		ResizeKeyboard: true,
 	}
 
 	_, err = m.Api.Send(msg)
@@ -216,7 +223,10 @@ func (m *MessageHandler) handleSeekerLocalityButtonReply(u *Update) error {
 	if len(helps) == 0 {
 		msg := tg.NewMessage(u.chatID(), fmt.Sprintf("%s\n\n%s", m.Localize.Translate(seekerHelpsEmptyTr, UALang), m.Localize.Translate(seekerSubscriptionProposalTr, UALang)))
 		msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
-			Keyboard:        [][]tg.KeyboardButton{{{Text: m.Localize.Translate(btnOptionSubscribeTr, UALang)}}},
+			Keyboard: [][]tg.KeyboardButton{{
+				{Text: m.Localize.Translate(btnOptionCancelTr, UALang)},
+				{Text: m.Localize.Translate(btnOptionSubscribeTr, UALang)},
+			}},
 			OneTimeKeyboard: true,
 			ResizeKeyboard:  true,
 		}
@@ -244,7 +254,10 @@ func (m *MessageHandler) handleSeekerLocalityButtonReply(u *Update) error {
 
 	msg := tg.NewMessage(u.chatID(), fmt.Sprintf("%s\n", m.Localize.Translate(seekerSubscriptionProposalTr, UALang)))
 	msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
-		Keyboard:        [][]tg.KeyboardButton{{{Text: m.Localize.Translate(btnOptionSubscribeTr, UALang)}}},
+		Keyboard: [][]tg.KeyboardButton{{
+			{Text: m.Localize.Translate(btnOptionCancelTr, UALang)},
+			{Text: m.Localize.Translate(btnOptionSubscribeTr, UALang)},
+		}},
 		OneTimeKeyboard: true,
 		ResizeKeyboard:  true,
 	}

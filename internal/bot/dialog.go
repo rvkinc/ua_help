@@ -165,11 +165,22 @@ func (m *MessageHandler) Handle(_ *tg.BotAPI, u *Update) {
 		}
 	}
 
+	if u.Message.Text == m.Localize.Translate(btnOptionCancelTr, UALang) {
+		m.dialogs.delete(u.chatID())
+		msg := tg.NewMessage(u.chatID(), m.Localize.Translate(navigationHintTr, UALang))
+		msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
+		_, err := m.Api.Send(msg)
+		if err != nil {
+			m.L.Error("handle cancel:", zap.Error(err))
+		}
+		return
+	}
+
 	dialog := m.dialogs.get(u.chatID())
 	if dialog == nil {
 		err := m.handleCmdStart(u)
 		if err != nil {
-			m.L.Error("handle user role request", zap.Error(err))
+			m.L.Error("handle start", zap.Error(err))
 		}
 		return
 	}
@@ -291,8 +302,8 @@ func (m *MessageHandler) handleCmdStart(u *Update) error {
 
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("%s\n", m.Localize.Translate(cmdStartActivityHeaderTr, UALang)))
-	b.WriteString(fmt.Sprintf("%s %d\n", m.Localize.Translate(cmdStartActivityHelpsTr, UALang), activity.ActiveHelpsCount+118))
-	b.WriteString(fmt.Sprintf("%s %d\n\n", m.Localize.Translate(cmdStartActivitySubscriptionsTr, UALang), activity.ActiveSubsCount+74))
+	b.WriteString(fmt.Sprintf("%s %d\n", m.Localize.Translate(cmdStartActivityHelpsTr, UALang), activity.ActiveHelpsCount))
+	b.WriteString(fmt.Sprintf("%s %d\n\n", m.Localize.Translate(cmdStartActivitySubscriptionsTr, UALang), activity.ActiveSubsCount))
 	b.WriteString(m.Localize.Translate(userRoleRequestTr, UALang))
 
 	msg := tg.NewMessage(u.chatID(), b.String())
@@ -302,6 +313,7 @@ func (m *MessageHandler) handleCmdStart(u *Update) error {
 		Keyboard: [][]tg.KeyboardButton{
 			{tg.KeyboardButton{Text: m.Localize.Translate(btnOptionRoleSeekerTr, UALang)}},
 			{tg.KeyboardButton{Text: m.Localize.Translate(btnOptionUserVolunteerTr, UALang)}},
+			{tg.KeyboardButton{Text: m.Localize.Translate(btnOptionCancelTr, UALang)}},
 		},
 	}
 
