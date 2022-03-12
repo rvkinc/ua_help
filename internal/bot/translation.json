@@ -60,8 +60,11 @@
   "btn_option_next": {
     "UA": "➡️ Далі"
   },
+  "btn_option_cancel": {
+    "UA": "❌ Відміна"
+  },
   "btn_option_subscribe": {
-    "UA": "Підписатись"
+    "UA": "✅ Підписатись"
   },
   "btn_option_delete": {
     "UA": "Видалити"

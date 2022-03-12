@@ -107,8 +107,7 @@ func (m *MessageHandler) handleVolunteerUserRoleReply(u *Update) error {
 	msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
 		OneTimeKeyboard: false,
 		ResizeKeyboard:  true,
-		Selective:       true,
-		Keyboard:        d.volunteer.categoryKeyboardLayout(""),
+		Keyboard:        d.volunteer.categoryKeyboardLayout(m.Localize.Translate(btnOptionCancelTr, UALang), ""),
 	}
 
 	_, err = m.Api.Send(msg)
@@ -126,7 +125,12 @@ func (m *MessageHandler) handleVolunteerCategoryCheckboxReply(u *Update) error {
 
 	if u.Message.Text == nextBtnText && len(d.volunteer.categories) > 0 {
 		msg := tg.NewMessage(u.chatID(), m.Localize.Translate(userLocalityRequestTr, UALang))
-		msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
+		msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
+			Keyboard: [][]tg.KeyboardButton{{
+				{Text: m.Localize.Translate(btnOptionCancelTr, UALang)},
+			}},
+			ResizeKeyboard: true,
+		}
 		_, err := m.Api.Send(msg)
 		d.next = m.handleVolunteerLocalityTextReply
 		return err
@@ -164,7 +168,7 @@ func (m *MessageHandler) handleVolunteerCategoryCheckboxReply(u *Update) error {
 	msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
 		OneTimeKeyboard: false,
 		ResizeKeyboard:  true,
-		Keyboard:        d.volunteer.categoryKeyboardLayout(nextbtn),
+		Keyboard:        d.volunteer.categoryKeyboardLayout(m.Localize.Translate(btnOptionCancelTr, UALang), nextbtn),
 	}
 
 	_, err := m.Api.Send(msg)
@@ -179,7 +183,6 @@ func (m *MessageHandler) handleVolunteerLocalityTextReply(u *Update) error {
 
 	if len(localities) == 0 {
 		msg := tg.NewMessage(u.chatID(), m.Localize.Translate(errorPleaseTryAgainTr, UALang))
-		msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
 		_, err := m.Api.Send(msg)
 		return err
 	}
@@ -189,10 +192,11 @@ func (m *MessageHandler) handleVolunteerLocalityTextReply(u *Update) error {
 		keyboardButtons = append(keyboardButtons, []tg.KeyboardButton{{Text: fmt.Sprintf("%s, %s", locality.Name, locality.RegionName)}})
 	}
 
+	keyboardButtons = append(keyboardButtons, []tg.KeyboardButton{{Text: m.Localize.Translate(btnOptionCancelTr, UALang)}})
+
 	msg := tg.NewMessage(u.chatID(), m.Localize.Translate(userLocalityReplyTr, UALang))
 	msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
-		Keyboard: keyboardButtons,
-		// OneTimeKeyboard: true,
+		Keyboard:       keyboardButtons,
 		ResizeKeyboard: true,
 	}
 
@@ -214,7 +218,13 @@ func (m *MessageHandler) handleVolunteerLocalityButtonReply(u *Update) error {
 			d.volunteer.locality = l
 			d.next = m.handleVolunteerDescriptionTextReply
 			msg := tg.NewMessage(u.chatID(), m.Localize.Translate(volunteerEnterDescriptionRequestTr, UALang))
-			msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
+			msg.ReplyMarkup = tg.ReplyKeyboardMarkup{
+				Keyboard: [][]tg.KeyboardButton{{
+					{Text: m.Localize.Translate(btnOptionCancelTr, UALang)},
+				}},
+				ResizeKeyboard:  true,
+				OneTimeKeyboard: true,
+			}
 			_, err := m.Api.Send(msg)
 			return err
 		}
@@ -263,11 +273,12 @@ func (m *MessageHandler) handleVolunteerDescriptionTextReply(u *Update) error {
 	m.dialogs.delete(u.chatID())
 	msg := tg.NewMessage(u.chatID(), b.String())
 	msg.ParseMode = "HTML"
+	msg.ReplyMarkup = tg.ReplyKeyboardHide{HideKeyboard: true}
 	_, err = m.Api.Send(msg)
 	return err
 }
 
-func (v *volunteer) categoryKeyboardLayout(nextbtn string) [][]tg.KeyboardButton {
+func (v *volunteer) categoryKeyboardLayout(cancelbtn, nextbtn string) [][]tg.KeyboardButton {
 	layout := make([][]tg.KeyboardButton, 0, len(v.categoryKeyboard))
 	for _, key := range v.categoryKeyboard {
 		if len(layout) == 0 || len(layout[len(layout)-1]) == 2 {
@@ -279,10 +290,13 @@ func (v *volunteer) categoryKeyboardLayout(nextbtn string) [][]tg.KeyboardButton
 	}
 
 	if nextbtn != "" {
-		layout = append(layout, []tg.KeyboardButton{{Text: nextbtn}})
+		return append(layout, []tg.KeyboardButton{
+			{Text: cancelbtn},
+			{Text: nextbtn},
+		})
 	}
 
-	return layout
+	return append(layout, []tg.KeyboardButton{{Text: cancelbtn}})
 }
 
 func (v *volunteer) invertCategoryButton(msg string) (uuid.UUID, bool) {

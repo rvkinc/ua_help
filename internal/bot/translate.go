@@ -35,6 +35,7 @@ const (
 	btnOptionNextTr              = "btn_option_next"
 	btnOptionSubscribeTr         = "btn_option_subscribe"
 	btnOptionDeleteTr            = "btn_option_delete"
+	btnOptionCancelTr            = "btn_option_cancel"
 	btnOptionHelpsBySubscription = "btn_optin_helps_by_subscription"
 
 	deleteHelpSuccessTr         = "delete_help_success"
